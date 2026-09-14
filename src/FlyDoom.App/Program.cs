@@ -1,5 +1,6 @@
 ﻿using FlyDoom.Connectome.IO;
 using FlyDoom.Connectome.Import;
+using FlyDoom.Connectome.Model;
 
 // Start searching from the application's current working directory.
 // Visual studio doesnt necessarily launch applications from the repo root, so relative paths would be unreliable
@@ -64,6 +65,13 @@ var neurons = dataset
     .ReadNeurons()
     .ToList();
 
+// Convert the large, sparse FlyWire root IDs into compact zero-based indicies for efficiency
+var neuronIndexMap = NeuronIndexMap.Create(
+    neurons.Select(neuron => neuron.RootId));
+
+Console.WriteLine($"Neuron indices: 0 - {neuronIndexMap.Count - 1:N0}");
+Console.WriteLine();
+
 Console.WriteLine($"Neurons: {neurons.Count:N0}");
 Console.WriteLine();
 
@@ -89,13 +97,42 @@ Console.WriteLine("Reading filtered connections...");
 // Do not convert the connection sequence to a list, please.
 long connectionCount = 0;
 long representedSynapseCount = 0;
+long unknownPresynapticNeurons = 0;
+long unknownPostsynapticNeurons = 0;
+long invalidSynapseCounts = 0;
 
 foreach (var connection in dataset.ReadConnections())
 {
     connectionCount++;
     representedSynapseCount += connection.SynapseCount;
+
+    // Every endpoint in the table should correspond to a neuron in neurons.csv.gz
+    // check this now before building sim structures from inconsistent data
+    if(!neuronIndexMap.TryGetIndex(
+        connection.PresynapticRootId, out _))
+    {
+        unknownPresynapticNeurons++;
+    }
+
+    if(!neuronIndexMap.TryGetIndex(connection.PostsynapticRootId, out _))
+    {
+        unknownPostsynapticNeurons++;
+    }
+
+    // a connection representing zero or fewer synapses wouldnt be possible
+    // therefore these indicate malformed data or an importer fuck up
+    if(connection.SynapseCount <= 0)
+    {
+        invalidSynapseCounts++;
+    }
 }
 
 Console.WriteLine();
 Console.WriteLine($"Connections:        {connectionCount:N0}");
 Console.WriteLine($"Represented synapses: {representedSynapseCount:N0}");
+Console.WriteLine();
+
+Console.WriteLine("Connectivity validation:");
+Console.WriteLine($"  Unknown presynaptic IDs:  {unknownPresynapticNeurons:N0}");
+Console.WriteLine($"  Unknown postsynaptic IDs: {unknownPostsynapticNeurons:N0}");
+Console.WriteLine($"  Invalid synapse counts:   {invalidSynapseCounts:N0}");

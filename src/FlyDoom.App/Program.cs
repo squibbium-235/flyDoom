@@ -1,4 +1,5 @@
 ﻿using FlyDoom.Connectome.IO;
+using FlyDoom.Connectome.Import;
 
 // Start searching from the application's current working directory.
 // Visual studio doesnt necessarily launch applications from the repo root, so relative paths would be unreliable
@@ -49,3 +50,52 @@ foreach(var file in files)
     Console.WriteLine(reader.ReadLine());
     Console.WriteLine();
 }
+
+var dataset = new FafbDatasetReader(dataDirectory);
+
+Console.WriteLine("FlyDoom FAFB v783");
+Console.WriteLine("=================");
+Console.WriteLine();
+
+Console.WriteLine("Loading neurons...");
+
+// The neuron dataset contains *around* 139,000 records, which is small enough to hold comfortably in memory.
+var neurons = dataset
+    .ReadNeurons()
+    .ToList();
+
+Console.WriteLine($"Neurons: {neurons.Count:N0}");
+Console.WriteLine();
+
+Console.WriteLine("Predicted neurotransmitter types:");
+Console.WriteLine();
+
+// Group neurons by their predicted neurotransmitter so that we can verify the dataset has been sensibly interpreted.
+var neurotransmitterCounts = neurons
+    .GroupBy(neuron =>
+    string.IsNullOrWhiteSpace(neuron.NeurotransmitterType)
+        ? "Unknown"
+        : neuron.NeurotransmitterType)
+    .OrderByDescending(group => group.Count());
+
+foreach(var group in neurotransmitterCounts)
+{
+    Console.WriteLine($"  {group.Key,-12} {group.Count(),10:N0}");
+}
+
+Console.WriteLine();
+Console.WriteLine("Reading filtered connections...");
+
+// Do not convert the connection sequence to a list, please.
+long connectionCount = 0;
+long representedSynapseCount = 0;
+
+foreach (var connection in dataset.ReadConnections())
+{
+    connectionCount++;
+    representedSynapseCount += connection.SynapseCount;
+}
+
+Console.WriteLine();
+Console.WriteLine($"Connections:        {connectionCount:N0}");
+Console.WriteLine($"Represented synapses: {representedSynapseCount:N0}");

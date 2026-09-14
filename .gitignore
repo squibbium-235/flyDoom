@@ -1,0 +1,9 @@
+# Visual Studio local files
+.vs/
+
+# Build output
+bin/
+obj/
+
+# Fly datasets
+/data/*

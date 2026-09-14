@@ -7,4 +7,14 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\tests\FlyDoom.Tests\FlyDoom.Tests.csproj" />
+    <ProjectReference Include="..\FlyDoom.Connectome\FlyDoom.Connectome.csproj" />
+    <ProjectReference Include="..\FlyDoom.Core\FlyDoom.Core.csproj" />
+    <ProjectReference Include="..\FlyDoom.Doom\FlyDoom.Doom.csproj" />
+    <ProjectReference Include="..\FlyDoom.Learning\FlyDoom.Learning.csproj" />
+    <ProjectReference Include="..\FlyDoom.Neural\FlyDoom.Neural.csproj" />
+    <ProjectReference Include="..\FlyDoom.Vision\FlyDoom.Vision.csproj" />
+  </ItemGroup>
+
 </Project>

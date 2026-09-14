@@ -15,6 +15,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\FlyDoom.Connectome\FlyDoom.Connectome.csproj" />
+    <ProjectReference Include="..\..\src\FlyDoom.Core\FlyDoom.Core.csproj" />
+    <ProjectReference Include="..\..\src\FlyDoom.Learning\FlyDoom.Learning.csproj" />
+    <ProjectReference Include="..\..\src\FlyDoom.Neural\FlyDoom.Neural.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
 

@@ -6,4 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\FlyDoom.Core\FlyDoom.Core.csproj" />
+  </ItemGroup>
+
 </Project>

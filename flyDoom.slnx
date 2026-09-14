@@ -1,1 +1,10 @@
-<Solution />
+<Solution>
+  <Project Path="src/FlyDoom.App/FlyDoom.App.csproj" />
+  <Project Path="src/FlyDoom.Connectome/FlyDoom.Connectome.csproj" />
+  <Project Path="src/FlyDoom.Core/FlyDoom.Core.csproj" />
+  <Project Path="src/FlyDoom.Doom/FlyDoom.Doom.csproj" />
+  <Project Path="src/FlyDoom.Learning/FlyDoom.Learning.csproj" />
+  <Project Path="src/FlyDoom.Neural/FlyDoom.Neural.csproj" />
+  <Project Path="src/FlyDoom.Vision/FlyDoom.Vision.csproj" />
+  <Project Path="tests/FlyDoom.Tests/FlyDoom.Tests.csproj" />
+</Solution>

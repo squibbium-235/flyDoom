@@ -66,9 +66,9 @@ public sealed class FafbDatasetReader
     /// an enumaerable sequence of FAFB connection records.
     /// </returns>
     public IEnumerable<FafbConnectionRecord> ReadConnections(
-        bool includeUnfilterted = false)
+        bool includeUnfiltered = false)
     {
-        var fileName = includeUnfilterted
+        var fileName = includeUnfiltered
             ? "connections_princeton_no_threshold.csv.gz"
             : "connections_princeton.csv.gz";
 

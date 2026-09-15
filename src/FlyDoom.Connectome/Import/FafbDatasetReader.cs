@@ -7,7 +7,7 @@ using FlyDoom.Connectome.IO;
 namespace FlyDoom.Connectome.Import;
 
 /// <summary>
-/// Reads raw FAFB v783 connectome data from the flies supplied by FlyWire/Codex
+/// Reads raw FAFB v783 connectome data from the files supplied by FlyWire/Codex
 /// </summary>
 public sealed class FafbDatasetReader
 {

@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\FlyDoom.Core\FlyDoom.Core.csproj" />
+    <ProjectReference Include="..\FlyDoom.Connectome\FlyDoom.Connectome.csproj" />
   </ItemGroup>
 
 </Project>

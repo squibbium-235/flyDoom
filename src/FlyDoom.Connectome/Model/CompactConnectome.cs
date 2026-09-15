@@ -1,3 +1,5 @@
+using FlyDoom.Core.Biology;
+
 namespace FlyDoom.Connectome.Model;
 
 /// <summary>
@@ -15,6 +17,7 @@ public sealed class CompactConnectome
     private readonly int[] _postsynapticIndices;
     private readonly int[] _synapseCounts;
     private readonly ushort[] _neuropilIndices;
+    private readonly NeurotransmitterType[] _neurotransmitterTypes;
     private readonly string[] _neuropilNames;
 
     /// <summary>
@@ -35,17 +38,38 @@ public sealed class CompactConnectome
     /// <summary>
     /// Initialises a compact connectome from pre-built connection arrays.
     /// </summary>
+    /// <param name="outgoingOffsets">
+    /// Start offsets for each neuron's outgoing connections.
+    /// The array contains one extra final entry marking the end of the data.
+    /// </param>
+    /// <param name="postsynapticIndices">
+    /// Compact neuron index targeted by each connection.
+    /// </param>
+    /// <param name="synapseCounts">
+    /// Number of anatomical synapses represented by each connection entry.
+    /// </param>
+    /// <param name="neuropilIndices">
+    /// Compact neuropil index for each connection entry.
+    /// </param>
+    /// <param name="neurotransmitterTypes">
+    /// Predicted neurotransmitter type for each connection entry.
+    /// </param>
+    /// <param name="neuropilNames">
+    /// Names corresponding to the compact neuropil indices.
+    /// </param>
     public CompactConnectome(
         int[] outgoingOffsets,
         int[] postsynapticIndices,
         int[] synapseCounts,
         ushort[] neuropilIndices,
+        NeurotransmitterType[] neurotransmitterTypes,
         string[] neuropilNames)
     {
         ArgumentNullException.ThrowIfNull(outgoingOffsets);
         ArgumentNullException.ThrowIfNull(postsynapticIndices);
         ArgumentNullException.ThrowIfNull(synapseCounts);
         ArgumentNullException.ThrowIfNull(neuropilIndices);
+        ArgumentNullException.ThrowIfNull(neurotransmitterTypes);
         ArgumentNullException.ThrowIfNull(neuropilNames);
 
         if (outgoingOffsets.Length == 0)
@@ -56,7 +80,8 @@ public sealed class CompactConnectome
         }
 
         if (postsynapticIndices.Length != synapseCounts.Length ||
-            postsynapticIndices.Length != neuropilIndices.Length)
+            postsynapticIndices.Length != neuropilIndices.Length ||
+            postsynapticIndices.Length != neurotransmitterTypes.Length)
         {
             throw new ArgumentException(
                 "Connection arrays must have matching lengths.");
@@ -83,6 +108,7 @@ public sealed class CompactConnectome
         _postsynapticIndices = postsynapticIndices;
         _synapseCounts = synapseCounts;
         _neuropilIndices = neuropilIndices;
+        _neurotransmitterTypes = neurotransmitterTypes;
         _neuropilNames = neuropilNames;
     }
 
@@ -122,6 +148,19 @@ public sealed class CompactConnectome
             GetOutgoingRange(presynapticIndex);
 
         return _neuropilIndices.AsSpan(start, length);
+    }
+
+    /// <summary>
+    /// Gets the predicted neurotransmitter types for the specified neuron's
+    /// outgoing connections.
+    /// </summary>
+    public ReadOnlySpan<NeurotransmitterType> GetNeurotransmitterTypes(
+        int presynapticIndex)
+    {
+        var (start, length) =
+            GetOutgoingRange(presynapticIndex);
+
+        return _neurotransmitterTypes.AsSpan(start, length);
     }
 
     /// <summary>

@@ -1,5 +1,7 @@
 using FlyDoom.Connectome.Import.Records;
 using FlyDoom.Connectome.Model;
+using FlyDoom.Core.Biology;
+using FlyDoom.Connectome.Import;
 
 namespace FlyDoom.Connectome.Build;
 
@@ -29,19 +31,22 @@ public static class CompactConnectomeBuilder
         ArgumentNullException.ThrowIfNull(neuronIndexMap);
         ArgumentNullException.ThrowIfNull(connectionSource);
 
-        var outgoingCounts = new int[neuronIndexMap.Count];
+        var outgoingCounts =
+            new int[neuronIndexMap.Count];
+
         var connectionCount = 0;
 
-        // Store each neuropil name once and use a small integer index
-        // for every connection that occurs within it.
+        // Store each neuropil name once and reference it using a compact
+        // integer index for every connection occurring within that neuropil.
         var neuropilToIndex =
-            new Dictionary<string, ushort>(StringComparer.Ordinal);
+            new Dictionary<string, ushort>(
+                StringComparer.Ordinal);
 
         var neuropilNames =
             new List<string>();
 
         // First pass: determine how much contiguous space each neuron needs
-        // and discover all neuropils present in the connection dataset.
+        // and discover all neuropils represented by the dataset.
         foreach (var connection in connectionSource())
         {
             var (presynapticIndex, _) =
@@ -50,27 +55,32 @@ public static class CompactConnectomeBuilder
                     neuronIndexMap);
 
             outgoingCounts[presynapticIndex] =
-                checked(outgoingCounts[presynapticIndex] + 1);
+                checked(
+                    outgoingCounts[presynapticIndex] + 1);
 
             connectionCount =
                 checked(connectionCount + 1);
 
-            if (string.IsNullOrWhiteSpace(connection.Neuropil))
+            if (string.IsNullOrWhiteSpace(
+                    connection.Neuropil))
             {
                 throw new InvalidDataException(
                     "Connection has no neuropil.");
             }
 
-            if (!neuropilToIndex.ContainsKey(connection.Neuropil))
+            if (!neuropilToIndex.ContainsKey(
+                    connection.Neuropil))
             {
-                if (neuropilNames.Count > ushort.MaxValue)
+                if (neuropilNames.Count >
+                    ushort.MaxValue)
                 {
                     throw new InvalidDataException(
                         "Too many distinct neuropils to represent with ushort indices.");
                 }
 
                 var neuropilIndex =
-                    checked((ushort)neuropilNames.Count);
+                    checked(
+                        (ushort)neuropilNames.Count);
 
                 neuropilToIndex.Add(
                     connection.Neuropil,
@@ -92,6 +102,10 @@ public static class CompactConnectomeBuilder
 
         var neuropilIndices =
             new ushort[connectionCount];
+
+        var neurotransmitterTypes =
+            new NeurotransmitterType[
+                connectionCount];
 
         // Each neuron writes into its own section of the connection arrays.
         var writePositions =
@@ -117,10 +131,11 @@ public static class CompactConnectomeBuilder
                 writePositions[presynapticIndex];
 
             var end =
-                outgoingOffsets[presynapticIndex + 1];
+                outgoingOffsets[
+                    presynapticIndex + 1];
 
-            // A different number of records between passes would corrupt
-            // the compact layout, so fail explicitly instead.
+            // If the source changes between passes, the array layout would
+            // no longer match the counts calculated during the first pass.
             if (writePosition >= end)
             {
                 throw new InvalidOperationException(
@@ -133,7 +148,8 @@ public static class CompactConnectomeBuilder
             synapseCounts[writePosition] =
                 connection.SynapseCount;
 
-            if (string.IsNullOrWhiteSpace(connection.Neuropil) ||
+            if (string.IsNullOrWhiteSpace(
+                    connection.Neuropil) ||
                 !neuropilToIndex.TryGetValue(
                     connection.Neuropil,
                     out var neuropilIndex))
@@ -145,7 +161,12 @@ public static class CompactConnectomeBuilder
             neuropilIndices[writePosition] =
                 neuropilIndex;
 
+            neurotransmitterTypes[writePosition] =
+               FafbNeurotransmitterParser.Parse(
+                    connection.NeurotransmitterType);
+
             writePositions[presynapticIndex]++;
+
             writtenConnections++;
         }
 
@@ -160,6 +181,7 @@ public static class CompactConnectomeBuilder
             postsynapticIndices,
             synapseCounts,
             neuropilIndices,
+            neurotransmitterTypes,
             neuropilNames.ToArray());
     }
 
@@ -172,10 +194,14 @@ public static class CompactConnectomeBuilder
         var offsets =
             new int[outgoingCounts.Length + 1];
 
-        for (var i = 0; i < outgoingCounts.Length; i++)
+        for (var i = 0;
+             i < outgoingCounts.Length;
+             i++)
         {
             offsets[i + 1] =
-                checked(offsets[i] + outgoingCounts[i]);
+                checked(
+                    offsets[i] +
+                    outgoingCounts[i]);
         }
 
         return offsets;
@@ -185,7 +211,9 @@ public static class CompactConnectomeBuilder
     /// Validates a connection record and maps its FlyWire root IDs to
     /// compact simulation indices.
     /// </summary>
-    private static (int PresynapticIndex, int PostsynapticIndex)
+    private static (
+        int PresynapticIndex,
+        int PostsynapticIndex)
         ValidateAndMapConnection(
             FafbConnectionRecord connection,
             NeuronIndexMap neuronIndexMap)

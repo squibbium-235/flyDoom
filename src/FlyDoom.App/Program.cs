@@ -1,108 +1,407 @@
-﻿using FlyDoom.Connectome.IO;
+﻿using FlyDoom.Connectome.Build;
 using FlyDoom.Connectome.Import;
 using FlyDoom.Connectome.Model;
+using FlyDoom.Core.Biology;
 using System.Diagnostics;
-using FlyDoom.Connectome.Build;
 
-// Start searching from the application's current working directory.
-// Visual studio doesnt necessarily launch applications from the repo root, so relative paths would be unreliable
-var currentDirectory = new DirectoryInfo(Directory.GetCurrentDirectory());
-DirectoryInfo? repoRoot = currentDirectory;
+var repoRoot = FindRepositoryRoot();
 
-// Walk upwards through the dir tree until the solution file is found, that shows the root of the repo
-while(repoRoot is not null && !File.Exists(Path.Combine(repoRoot.FullName, "flyDoom.slnx")))
-{
-    repoRoot = repoRoot.Parent;
-}
-
-// If the solution file isnt found, the application cant find where the data reliably is
-if(repoRoot is null)
-{
-    Console.WriteLine("Could not find the FlyDoom repository root.");
-    return;
-}
-
-// construct the path using Path.Combine rather than slash characters (heh like the guy from Guns N' Roses) so that shit works on all the OSes
-var dataDirectory = Path.Combine(repoRoot.FullName, "data", "fafb-v783", "raw");
+var dataDirectory =
+    Path.Combine(
+        repoRoot.FullName,
+        "data",
+        "fafb-v783",
+        "raw");
 
 Console.WriteLine($"Repository: {repoRoot.FullName}");
 Console.WriteLine($"Data:       {dataDirectory}");
 Console.WriteLine();
 
-// stop early if the directory hasnt been created/doesnt exist
-if(!Directory.Exists(dataDirectory))
-{
-    Console.WriteLine("FAFB data directory does not exist.");
-    return;
-}
-
-// only inspect g-zip files because the downloads are stored compressed
-var files = Directory.GetFiles(dataDirectory, "*.gz");
-
-Console.WriteLine($"Found {files.Length} compressed files.");
-Console.WriteLine();
-
-// read only the first line from each decompressed file
-// this gives column headers without loading several gigabytes of files
-foreach(var file in files)
-{
-    Console.WriteLine($"=== {Path.GetFileName(file)} ===");
-
-    using var reader = GzipCsvFile.Open(file);
-
-    Console.WriteLine(reader.ReadLine());
-    Console.WriteLine();
-}
-
-var dataset = new FafbDatasetReader(dataDirectory);
-
 Console.WriteLine("FlyDoom FAFB v783");
 Console.WriteLine("=================");
 Console.WriteLine();
 
+var dataset =
+    new FafbDatasetReader(dataDirectory);
+
 Console.WriteLine("Loading neurons...");
 
-// The neuron dataset contains *around* 139,000 records, which is small enough to hold comfortably in memory.
-var neurons = dataset
-    .ReadNeurons()
-    .ToList();
+var neurons =
+    dataset.ReadNeurons().ToList();
 
-// Convert the large, sparse FlyWire root IDs into compact zero-based indicies for efficiency
-var neuronIndexMap = NeuronIndexMap.Create(
-    neurons.Select(neuron => neuron.RootId));
+Console.WriteLine(
+    $"Neurons: {neurons.Count:N0}");
+
+var neuronIndexMap =
+    NeuronIndexMap.Create(
+        neurons.Select(
+            neuron => neuron.RootId));
+
+Console.WriteLine(
+    $"Neuron indices: 0 - " +
+    $"{neuronIndexMap.Count - 1:N0}");
 
 Console.WriteLine();
-Console.WriteLine("Building compact connectome...");
+Console.WriteLine("Building neuron metadata...");
 
-var buildTimer = Stopwatch.StartNew();
-var connectome = CompactConnectomeBuilder.Build(neuronIndexMap, () => dataset.ReadConnections());
+var neuronTable =
+    CompactNeuronTableBuilder.Build(
+        neurons,
+        neuronIndexMap);
+
+Console.WriteLine(
+    $"Neuron metadata: {neuronTable.Count:N0}");
+
+Console.WriteLine();
+Console.WriteLine(
+    "Building neuron identity metadata...");
+
+var identityTable =
+    CompactNeuronIdentityTableBuilder.Build(
+        neuronIndexMap,
+        dataset.ReadNames(),
+        dataset.ReadClassifications(),
+        dataset.ReadCellTypes());
+
+Console.WriteLine(
+    $"Neuron identities: {identityTable.Count:N0}");
+
+var namedNeurons = 0;
+var typedNeurons = 0;
+var classifiedNeurons = 0;
+var sidedNeurons = 0;
+var hemilineageNeurons = 0;
+
+for (var neuronIndex = 0;
+     neuronIndex < identityTable.Count;
+     neuronIndex++)
+{
+    if (identityTable.GetName(
+            neuronIndex) is not null)
+    {
+        namedNeurons++;
+    }
+
+    if (identityTable.GetPrimaryType(
+            neuronIndex) is not null)
+    {
+        typedNeurons++;
+    }
+
+    if (identityTable.GetClass(
+            neuronIndex) is not null)
+    {
+        classifiedNeurons++;
+    }
+
+    if (identityTable.GetSide(
+            neuronIndex) is not null)
+    {
+        sidedNeurons++;
+    }
+
+    if (identityTable.GetHemilineage(
+            neuronIndex) is not null)
+    {
+        hemilineageNeurons++;
+    }
+}
+
+Console.WriteLine();
+Console.WriteLine("Identity metadata coverage:");
+
+Console.WriteLine(
+    $"  Named:        " +
+    $"{namedNeurons,8:N0} " +
+    $"({namedNeurons * 100.0 / identityTable.Count,5:F1}%)");
+
+Console.WriteLine(
+    $"  Primary type: " +
+    $"{typedNeurons,8:N0} " +
+    $"({typedNeurons * 100.0 / identityTable.Count,5:F1}%)");
+
+Console.WriteLine(
+    $"  Classified:   " +
+    $"{classifiedNeurons,8:N0} " +
+    $"({classifiedNeurons * 100.0 / identityTable.Count,5:F1}%)");
+
+Console.WriteLine(
+    $"  Side:         " +
+    $"{sidedNeurons,8:N0} " +
+    $"({sidedNeurons * 100.0 / identityTable.Count,5:F1}%)");
+
+Console.WriteLine(
+    $"  Hemilineage:  " +
+    $"{hemilineageNeurons,8:N0} " +
+    $"({hemilineageNeurons * 100.0 / identityTable.Count,5:F1}%)");
+
+Console.WriteLine();
+Console.WriteLine("Building neuron positions...");
+
+var positionTable =
+    CompactNeuronPositionTableBuilder.Build(
+        () => dataset.ReadCoordinates(),
+        neuronIndexMap);
+
+var positionedNeurons = 0;
+var neuronsWithMultiplePositions = 0;
+
+for (var neuronIndex = 0;
+     neuronIndex < positionTable.NeuronCount;
+     neuronIndex++)
+{
+    var positionCount =
+        positionTable.GetPositionCount(
+            neuronIndex);
+
+    if (positionCount > 0)
+    {
+        positionedNeurons++;
+    }
+
+    if (positionCount > 1)
+    {
+        neuronsWithMultiplePositions++;
+    }
+}
+
+Console.WriteLine(
+    $"Coordinate records: " +
+    $"{positionTable.PositionCount:N0}");
+
+Console.WriteLine(
+    $"Neurons with coordinates: " +
+    $"{positionedNeurons:N0} / " +
+    $"{positionTable.NeuronCount:N0}");
+
+Console.WriteLine(
+    $"Neurons with multiple coordinates: " +
+    $"{neuronsWithMultiplePositions:N0}");
+
+Console.WriteLine();
+Console.WriteLine(
+    "Building neuron morphology metadata...");
+
+var morphologyTable =
+    CompactNeuronMorphologyTableBuilder.Build(
+        dataset.ReadCellStats(),
+        neuronIndexMap);
+
+var morphologyNeurons = 0;
+
+for (var neuronIndex = 0;
+     neuronIndex < morphologyTable.Count;
+     neuronIndex++)
+{
+    if (morphologyTable.HasStatistics(
+            neuronIndex))
+    {
+        morphologyNeurons++;
+    }
+}
+
+Console.WriteLine(
+    $"Morphology metadata: " +
+    $"{morphologyNeurons:N0} / " +
+    $"{morphologyTable.Count:N0}");
+
+Console.WriteLine();
+Console.WriteLine(
+    "Building compact connectome...");
+
+var buildTimer =
+    Stopwatch.StartNew();
+
+var connectome =
+    CompactConnectomeBuilder.Build(
+        neuronIndexMap,
+        () => dataset.ReadConnections());
 
 buildTimer.Stop();
 
 Console.WriteLine();
-Console.WriteLine("Compact connectome built.");
-Console.WriteLine($"Neurons:     {connectome.NeuronCount:N0}");
-Console.WriteLine($"Connections: {connectome.ConnectionCount:N0}");
-Console.WriteLine($"Build Time:  {buildTimer.Elapsed.TotalSeconds:N2} s");
+Console.WriteLine(
+    "Compact connectome built.");
 
-Console.WriteLine($"Neuron indices: 0 - {neuronIndexMap.Count - 1:N0}");
+Console.WriteLine(
+    $"Neurons:     " +
+    $"{connectome.NeuronCount:N0}");
+
+Console.WriteLine(
+    $"Connections: " +
+    $"{connectome.ConnectionCount:N0}");
+
 Console.WriteLine();
+Console.WriteLine(
+    "Connection neurotransmitter types:");
 
-Console.WriteLine($"Neurons: {neurons.Count:N0}");
-Console.WriteLine();
+var connectionTypeCounts =
+    new Dictionary<NeurotransmitterType, long>();
 
-Console.WriteLine("Predicted neurotransmitter types:");
-Console.WriteLine();
+var representedSynapsesByType =
+    new Dictionary<NeurotransmitterType, long>();
 
-// Group neurons by their predicted neurotransmitter so that we can verify the dataset has been sensibly interpreted.
-var neurotransmitterCounts = neurons
-    .GroupBy(neuron =>
-    string.IsNullOrWhiteSpace(neuron.NeurotransmitterType)
-        ? "Unknown"
-        : neuron.NeurotransmitterType)
-    .OrderByDescending(group => group.Count());
-
-foreach(var group in neurotransmitterCounts)
+foreach (var type in
+         Enum.GetValues<NeurotransmitterType>())
 {
-    Console.WriteLine($"  {group.Key,-12} {group.Count(),10:N0}");
+    connectionTypeCounts[type] = 0;
+    representedSynapsesByType[type] = 0;
+}
+
+for (var neuronIndex = 0;
+     neuronIndex < connectome.NeuronCount;
+     neuronIndex++)
+{
+    var neurotransmitterTypes =
+        connectome.GetNeurotransmitterTypes(
+            neuronIndex);
+
+    var synapseCounts =
+        connectome.GetSynapseCounts(
+            neuronIndex);
+
+    for (var connectionIndex = 0;
+         connectionIndex <
+         neurotransmitterTypes.Length;
+         connectionIndex++)
+    {
+        var type =
+            neurotransmitterTypes[
+                connectionIndex];
+
+        connectionTypeCounts[type]++;
+
+        representedSynapsesByType[type] +=
+            synapseCounts[
+                connectionIndex];
+    }
+}
+
+foreach (var type in
+         Enum.GetValues<NeurotransmitterType>())
+{
+    Console.WriteLine(
+        $"  {type,-16} " +
+        $"{connectionTypeCounts[type],10:N0} connections  " +
+        $"{representedSynapsesByType[type],12:N0} synapses");
+}
+
+Console.WriteLine();
+Console.WriteLine(
+    $"Neuropils: {connectome.NeuropilCount:N0}");
+
+Console.WriteLine();
+Console.WriteLine("Neuropils:");
+
+for (var i = 0;
+     i < connectome.NeuropilCount;
+     i++)
+{
+    Console.WriteLine(
+        $"  {i,3}: " +
+        $"{connectome.GetNeuropilName((ushort)i)}");
+}
+
+Console.WriteLine();
+Console.WriteLine(
+    $"Connectome build time: " +
+    $"{buildTimer.Elapsed.TotalSeconds:F2} s");
+
+Console.WriteLine();
+Console.WriteLine(
+    "Predicted neuron neurotransmitter types:");
+
+var neuronTypeCounts =
+    neurons
+        .GroupBy(
+            neuron =>
+                neuron.NeurotransmitterType
+                ?? "Unknown")
+        .OrderByDescending(
+            group => group.Count());
+
+foreach (var group in neuronTypeCounts)
+{
+    Console.WriteLine(
+        $"  {group.Key,-12} " +
+        $"{group.Count(),10:N0}");
+}
+
+Console.WriteLine();
+Console.WriteLine(
+    "Checking supplementary datasets...");
+
+var columnAssignmentCount =
+    dataset
+        .ReadColumnAssignments()
+        .Count();
+
+Console.WriteLine(
+    $"  Column assignments: " +
+    $"{columnAssignmentCount:N0}");
+
+var connectivityTagCount =
+    dataset
+        .ReadConnectivityTags()
+        .Count();
+
+Console.WriteLine(
+    $"  Connectivity tags: " +
+    $"{connectivityTagCount:N0}");
+
+var processedLabelCount =
+    dataset
+        .ReadProcessedLabels()
+        .Count();
+
+Console.WriteLine(
+    $"  Processed labels: " +
+    $"{processedLabelCount:N0}");
+
+var visualNeuronTypeCount =
+    dataset
+        .ReadVisualNeuronTypes()
+        .Count();
+
+Console.WriteLine(
+    $"  Visual neuron types: " +
+    $"{visualNeuronTypeCount:N0}");
+
+var synapseTableReadable =
+    dataset
+        .ReadSynapses()
+        .Any();
+
+Console.WriteLine(
+    $"  Individual synapse table readable: " +
+    $"{synapseTableReadable}");
+
+Console.WriteLine();
+Console.WriteLine(
+    "FAFB v783 import completed successfully.");
+
+static DirectoryInfo FindRepositoryRoot()
+{
+    var directory =
+        new DirectoryInfo(
+            Directory.GetCurrentDirectory());
+
+    while (directory is not null)
+    {
+        var solutionPath =
+            Path.Combine(
+                directory.FullName,
+                "flyDoom.slnx");
+
+        if (File.Exists(solutionPath))
+        {
+            return directory;
+        }
+
+        directory =
+            directory.Parent;
+    }
+
+    throw new DirectoryNotFoundException(
+        "Could not locate the FlyDoom repository root.");
 }

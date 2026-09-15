@@ -1,4 +1,5 @@
 ﻿using FlyDoom.Connectome.Model;
+using FlyDoom.Core.Biology;
 
 namespace FlyDoom.Tests;
 
@@ -117,6 +118,15 @@ public sealed class CompactConnectomeTests
                 2,
                 1,
                 2
+            ],
+            neurotransmitterTypes:
+            [
+                NeurotransmitterType.Acetylcholine,
+                NeurotransmitterType.Gaba,
+                NeurotransmitterType.Acetylcholine,
+                NeurotransmitterType.Glutamate,
+                NeurotransmitterType.Dopamine,
+                NeurotransmitterType.Serotonin
             ],
             neuropilNames:
             [

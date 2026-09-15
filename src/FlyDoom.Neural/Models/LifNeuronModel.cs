@@ -22,12 +22,6 @@ public sealed class LifNeuronModel
     /// <summary>
     /// Advances every neuron by one simulation timestep.
     /// </summary>
-    /// <param name="state">
-    /// Mutable neuron state to update.
-    /// </param>
-    /// <param name="timeStepMs">
-    /// Duration of the simulation step in milliseconds.
-    /// </param>
     public void Step(
         NeuronStateTable state,
         float timeStepMs)
@@ -35,7 +29,8 @@ public sealed class LifNeuronModel
         ArgumentNullException.ThrowIfNull(
             state);
 
-        if (timeStepMs <= 0)
+        if (timeStepMs <= 0 ||
+            !float.IsFinite(timeStepMs))
         {
             throw new ArgumentOutOfRangeException(
                 nameof(timeStepMs));
@@ -44,14 +39,30 @@ public sealed class LifNeuronModel
         var membranePotentials =
             state.MembranePotentialsMv;
 
-        var synapticDrive =
-            state.SynapticDriveMv;
+        var synapticInputs =
+            state.SynapticInputsMv;
+
+        var externalDrives =
+            state.ExternalDrivesMv;
 
         var refractoryRemaining =
             state.RefractoryRemainingMs;
 
         var fired =
             state.Fired;
+
+        //
+        // Synaptic input follows exponential decay:
+        //
+        // S(t + dt) = S(t) * exp(-dt / tauSyn)
+        //
+        // Unlike the old implementation, a synaptic event therefore
+        // influences the neuron for several timesteps.
+        //
+        var synapticDecayFactor =
+            MathF.Exp(
+                -timeStepMs /
+                _parameters.SynapticTimeConstantMs);
 
         for (var neuronIndex = 0;
              neuronIndex < state.Count;
@@ -71,38 +82,59 @@ public sealed class LifNeuronModel
                 membranePotentials[neuronIndex] =
                     _parameters.ResetPotentialMv;
 
-                synapticDrive[neuronIndex] =
+                //
+                // Synaptic activity continues to decay while the neuron
+                // is refractory rather than disappearing instantly.
+                //
+                synapticInputs[neuronIndex] *=
+                    synapticDecayFactor;
+
+                //
+                // External stimulation belongs only to this timestep.
+                //
+                externalDrives[neuronIndex] =
                     0;
 
                 continue;
             }
 
             var membranePotential =
-                membranePotentials[neuronIndex];
+                membranePotentials[
+                    neuronIndex];
 
-            var drive =
-                synapticDrive[neuronIndex];
+            var totalDrive =
+                synapticInputs[neuronIndex] +
+                externalDrives[neuronIndex];
 
-            // Euler integration of:
+            //
+            // Current-based reference LIF model:
             //
             // dV/dt =
-            // (Vrest - V + synapticDrive) / membraneTimeConstant
+            // (Vrest - V + synapticDrive + externalDrive) / tauMembrane
             //
-            // Synaptic drive is currently represented as an equivalent
-            // voltage contribution rather than a detailed conductance model.
+            // Drive values are voltage-equivalent terms inside this
+            // equation. They are not direct membrane-voltage changes.
+            //
             membranePotential +=
                 timeStepMs /
                 _parameters.MembraneTimeConstantMs *
                 (
                     _parameters.RestingPotentialMv -
                     membranePotential +
-                    drive
+                    totalDrive
                 );
 
-            // Input is consumed by this timestep. New synaptic events will
-            // accumulate drive for a future step.
-            synapticDrive[neuronIndex] =
+            //
+            // External drive is a one-step stimulus.
+            //
+            externalDrives[neuronIndex] =
                 0;
+
+            //
+            // Recurrent synaptic input persists and decays.
+            //
+            synapticInputs[neuronIndex] *=
+                synapticDecayFactor;
 
             if (membranePotential >=
                 _parameters.ThresholdPotentialMv)

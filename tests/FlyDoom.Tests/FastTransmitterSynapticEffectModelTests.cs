@@ -7,13 +7,13 @@ namespace FlyDoom.Tests;
 public sealed class FastTransmitterSynapticEffectModelTests
 {
     [Fact]
-    public void Acetylcholine_ProducesPositiveDrive()
+    public void Acetylcholine_ProducesPositiveInput()
     {
         var model =
             CreateModel();
 
-        var drive =
-            model.CalculateDriveMv(
+        var input =
+            model.CalculateInputAmplitudeMv(
                 0,
                 1,
                 5,
@@ -21,17 +21,17 @@ public sealed class FastTransmitterSynapticEffectModelTests
                 NeurotransmitterType.Acetylcholine);
 
         Assert.True(
-            drive > 0);
+            input > 0);
     }
 
     [Fact]
-    public void Gaba_ProducesNegativeDrive()
+    public void Gaba_ProducesNegativeInput()
     {
         var model =
             CreateModel();
 
-        var drive =
-            model.CalculateDriveMv(
+        var input =
+            model.CalculateInputAmplitudeMv(
                 0,
                 1,
                 5,
@@ -39,17 +39,17 @@ public sealed class FastTransmitterSynapticEffectModelTests
                 NeurotransmitterType.Gaba);
 
         Assert.True(
-            drive < 0);
+            input < 0);
     }
 
     [Fact]
-    public void Glutamate_ProducesNegativeDrive()
+    public void Glutamate_ProducesNegativeInput()
     {
         var model =
             CreateModel();
 
-        var drive =
-            model.CalculateDriveMv(
+        var input =
+            model.CalculateInputAmplitudeMv(
                 0,
                 1,
                 5,
@@ -57,7 +57,7 @@ public sealed class FastTransmitterSynapticEffectModelTests
                 NeurotransmitterType.Glutamate);
 
         Assert.True(
-            drive < 0);
+            input < 0);
     }
 
     [Theory]
@@ -65,14 +65,14 @@ public sealed class FastTransmitterSynapticEffectModelTests
     [InlineData(NeurotransmitterType.Serotonin)]
     [InlineData(NeurotransmitterType.Octopamine)]
     [InlineData(NeurotransmitterType.Unknown)]
-    public void NonFastTransmitters_DoNotProduceFastDrive(
+    public void NonFastTransmitters_ProduceNoFastInput(
         NeurotransmitterType neurotransmitterType)
     {
         var model =
             CreateModel();
 
-        var drive =
-            model.CalculateDriveMv(
+        var input =
+            model.CalculateInputAmplitudeMv(
                 0,
                 1,
                 5,
@@ -81,11 +81,11 @@ public sealed class FastTransmitterSynapticEffectModelTests
 
         Assert.Equal(
             0f,
-            drive);
+            input);
     }
 
     [Fact]
-    public void Drive_IsNormalisedByPostsynapticInput()
+    public void Input_IsNormalisedByPostsynapticInput()
     {
         var connectome =
             CreateConnectome();
@@ -97,13 +97,10 @@ public sealed class FastTransmitterSynapticEffectModelTests
         var model =
             new FastTransmitterSynapticEffectModel(
                 inputs,
-                fullInputDriveMv: 100f);
+                fullInputAmplitudeMv: 100f);
 
-        // Neuron 1 receives 5 + 5 = 10 anatomical synapses.
-        // One five-synapse connection therefore represents 50% of
-        // its total anatomical input.
-        var drive =
-            model.CalculateDriveMv(
+        var input =
+            model.CalculateInputAmplitudeMv(
                 0,
                 1,
                 5,
@@ -112,7 +109,7 @@ public sealed class FastTransmitterSynapticEffectModelTests
 
         Assert.Equal(
             50f,
-            drive);
+            input);
     }
 
     [Fact]
@@ -142,14 +139,12 @@ public sealed class FastTransmitterSynapticEffectModelTests
 
         return new FastTransmitterSynapticEffectModel(
             inputs,
-            fullInputDriveMv: 40f);
+            fullInputAmplitudeMv: 40f);
     }
 
     private static CompactConnectome
         CreateConnectome()
     {
-        // Neuron 0 -> neuron 1 with five synapses.
-        // Neuron 2 -> neuron 1 with five synapses.
         return new CompactConnectome(
             outgoingOffsets:
             [

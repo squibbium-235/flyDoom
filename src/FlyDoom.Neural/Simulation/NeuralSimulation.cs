@@ -65,15 +65,9 @@ public sealed class NeuralSimulation
     }
 
     /// <summary>
-    /// Advances the neural simulation by one timestep.
+    /// Advances the complete neural simulation by one timestep.
     /// </summary>
-    /// <remarks>
-    /// Neurons are first updated for the current timestep. Spikes produced
-    /// during that update then generate synaptic drive that will be consumed
-    /// during the following timestep. This gives propagation a minimum delay
-    /// of one simulation step.
-    /// </remarks>
-    public void Step(
+    public NeuralStepStatistics Step(
         float timeStepMs)
     {
         if (timeStepMs <= 0 ||
@@ -87,19 +81,64 @@ public sealed class NeuralSimulation
             _state,
             timeStepMs);
 
-        PropagateSpikes();
+        var firedNeuronCount =
+            CountFiredNeurons();
+
+        var propagatedConnectionCount =
+            PropagateSpikes();
 
         SimulationTimeMs +=
             timeStepMs;
+
+        var activity =
+            MeasureActivity();
+
+        return new NeuralStepStatistics(
+            SimulationTimeMs,
+            firedNeuronCount,
+            activity.ActiveSynapticNeuronCount,
+            propagatedConnectionCount,
+            activity.MaximumAbsoluteSynapticInputMv,
+            activity.MinimumMembranePotentialMv,
+            activity.MaximumMembranePotentialMv);
     }
 
-    /// <summary>
-    /// Converts spikes from the current timestep into postsynaptic input.
-    /// </summary>
-    private void PropagateSpikes()
+    private int CountFiredNeurons()
     {
         var fired =
             _state.Fired;
+
+        var count =
+            0;
+
+        for (var neuronIndex = 0;
+             neuronIndex < fired.Length;
+             neuronIndex++)
+        {
+            if (fired[neuronIndex])
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// Propagates spike-triggered synaptic output.
+    /// </summary>
+    /// <remarks>
+    /// Graded sensory transmission, such as photoreceptor output, enters
+    /// synaptic state separately and therefore does not need to manufacture
+    /// action potentials in neurons that are biologically non-spiking.
+    /// </remarks>
+    private long PropagateSpikes()
+    {
+        var fired =
+            _state.Fired;
+
+        long propagatedConnectionCount =
+            0;
 
         for (var presynapticIndex = 0;
              presynapticIndex < _connectome.NeuronCount;
@@ -133,18 +172,99 @@ public sealed class NeuralSimulation
                 var postsynapticIndex =
                     targets[connectionIndex];
 
-                var drive =
-                    _synapticEffectModel.CalculateDriveMv(
-                        presynapticIndex,
-                        postsynapticIndex,
-                        synapseCounts[connectionIndex],
-                        neuropils[connectionIndex],
-                        neurotransmitters[connectionIndex]);
+                var inputAmplitude =
+                    _synapticEffectModel
+                        .CalculateInputAmplitudeMv(
+                            presynapticIndex,
+                            postsynapticIndex,
+                            synapseCounts[connectionIndex],
+                            neuropils[connectionIndex],
+                            neurotransmitters[connectionIndex]);
 
-                _state.AddSynapticDriveMv(
+                if (inputAmplitude == 0f)
+                {
+                    continue;
+                }
+
+                _state.AddSynapticInputMv(
                     postsynapticIndex,
-                    drive);
+                    inputAmplitude);
+
+                propagatedConnectionCount++;
             }
         }
+
+        return propagatedConnectionCount;
+    }
+
+    private (
+        int ActiveSynapticNeuronCount,
+        float MaximumAbsoluteSynapticInputMv,
+        float MinimumMembranePotentialMv,
+        float MaximumMembranePotentialMv)
+        MeasureActivity()
+    {
+        var synapticInputs =
+            _state.SynapticInputsMv;
+
+        var membranePotentials =
+            _state.MembranePotentialsMv;
+
+        var activeSynapticNeuronCount =
+            0;
+
+        var maximumAbsoluteSynapticInputMv =
+            0f;
+
+        var minimumMembranePotentialMv =
+            float.PositiveInfinity;
+
+        var maximumMembranePotentialMv =
+            float.NegativeInfinity;
+
+        for (var neuronIndex = 0;
+             neuronIndex < _state.Count;
+             neuronIndex++)
+        {
+            var absoluteInput =
+                MathF.Abs(
+                    synapticInputs[neuronIndex]);
+
+            //
+            // Ignore tiny floating-point remnants left after exponential
+            // synaptic decay.
+            //
+            if (absoluteInput > 0.0001f)
+            {
+                activeSynapticNeuronCount++;
+            }
+
+            if (absoluteInput >
+                maximumAbsoluteSynapticInputMv)
+            {
+                maximumAbsoluteSynapticInputMv =
+                    absoluteInput;
+            }
+
+            if (membranePotentials[neuronIndex] <
+                minimumMembranePotentialMv)
+            {
+                minimumMembranePotentialMv =
+                    membranePotentials[neuronIndex];
+            }
+
+            if (membranePotentials[neuronIndex] >
+                maximumMembranePotentialMv)
+            {
+                maximumMembranePotentialMv =
+                    membranePotentials[neuronIndex];
+            }
+        }
+
+        return (
+            activeSynapticNeuronCount,
+            maximumAbsoluteSynapticInputMv,
+            minimumMembranePotentialMv,
+            maximumMembranePotentialMv);
     }
 }

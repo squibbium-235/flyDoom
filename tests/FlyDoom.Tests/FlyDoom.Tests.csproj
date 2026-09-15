@@ -19,6 +19,7 @@
     <ProjectReference Include="..\..\src\FlyDoom.Core\FlyDoom.Core.csproj" />
     <ProjectReference Include="..\..\src\FlyDoom.Learning\FlyDoom.Learning.csproj" />
     <ProjectReference Include="..\..\src\FlyDoom.Neural\FlyDoom.Neural.csproj" />
+    <ProjectReference Include="..\..\src\FlyDoom.Vision\FlyDoom.Vision.csproj" />
   </ItemGroup>
 
   <ItemGroup>

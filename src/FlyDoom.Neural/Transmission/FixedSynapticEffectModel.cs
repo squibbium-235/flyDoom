@@ -3,39 +3,32 @@
 namespace FlyDoom.Neural.Transmission;
 
 /// <summary>
-/// Applies a fixed amount of synaptic drive per anatomical synapse.
+/// Applies a fixed synaptic input amplitude per anatomical synapse.
 /// </summary>
 /// <remarks>
-/// This model exists for simulator validation and synthetic networks.
-/// It should not be treated as a biological model of FAFB connectivity.
+/// This exists for simulator tests and synthetic networks. It is not a
+/// biological model of FAFB connectivity.
 /// </remarks>
 public sealed class FixedSynapticEffectModel :
     ISynapticEffectModel
 {
-    private readonly float _drivePerSynapseMv;
+    private readonly float _inputPerSynapseMv;
 
-    /// <summary>
-    /// Initialises a fixed synaptic effect model.
-    /// </summary>
-    /// <param name="drivePerSynapseMv">
-    /// Drive contributed by each anatomical synapse.
-    /// </param>
     public FixedSynapticEffectModel(
-        float drivePerSynapseMv)
+        float inputPerSynapseMv)
     {
-        if (!float.IsFinite(
-                drivePerSynapseMv))
+        if (!float.IsFinite(inputPerSynapseMv))
         {
             throw new ArgumentOutOfRangeException(
-                nameof(drivePerSynapseMv));
+                nameof(inputPerSynapseMv));
         }
 
-        _drivePerSynapseMv =
-            drivePerSynapseMv;
+        _inputPerSynapseMv =
+            inputPerSynapseMv;
     }
 
     /// <inheritdoc />
-    public float CalculateDriveMv(
+    public float CalculateInputAmplitudeMv(
         int presynapticIndex,
         int postsynapticIndex,
         int synapseCount,
@@ -48,7 +41,7 @@ public sealed class FixedSynapticEffectModel :
                 nameof(synapseCount));
         }
 
-        return _drivePerSynapseMv *
+        return _inputPerSynapseMv *
                synapseCount;
     }
 }

@@ -2,10 +2,12 @@
 using FlyDoom.Connectome.Build;
 using FlyDoom.Connectome.Import;
 using FlyDoom.Connectome.Model;
-using FlyDoom.Core.Biology;
 using FlyDoom.Neural.Models;
 using FlyDoom.Neural.Simulation;
 using FlyDoom.Neural.Transmission;
+using FlyDoom.Vision.Build;
+using FlyDoom.Vision.Model;
+using FlyDoom.Vision.Stimulation;
 
 var repoRoot =
     FindRepositoryRoot();
@@ -33,18 +35,17 @@ var dataset =
         dataDirectory);
 
 //
-// Neuron identities and basic metadata
+// The neuron list establishes the compact index space shared by the
+// connectome, biological metadata, visual system and simulation state.
 //
 
-Console.WriteLine("Loading neurons...");
+Console.WriteLine(
+    "Loading neurons...");
 
 var neurons =
     dataset
         .ReadNeurons()
         .ToList();
-
-Console.WriteLine(
-    $"Neurons: {neurons.Count:N0}");
 
 var neuronIndexMap =
     NeuronIndexMap.Create(
@@ -52,8 +53,11 @@ var neuronIndexMap =
             neuron => neuron.RootId));
 
 Console.WriteLine(
-    $"Neuron indices: 0 - " +
-    $"{neuronIndexMap.Count - 1:N0}");
+    $"Neurons: {neurons.Count:N0}");
+
+//
+// Build biological and identity metadata.
+//
 
 Console.WriteLine();
 Console.WriteLine(
@@ -67,10 +71,6 @@ var neuronTable =
 Console.WriteLine(
     $"Neuron metadata: " +
     $"{neuronTable.Count:N0}");
-
-//
-// Identity metadata
-//
 
 Console.WriteLine();
 Console.WriteLine(
@@ -87,78 +87,9 @@ Console.WriteLine(
     $"Neuron identities: " +
     $"{identityTable.Count:N0}");
 
-var namedNeurons = 0;
-var typedNeurons = 0;
-var classifiedNeurons = 0;
-var sidedNeurons = 0;
-var hemilineageNeurons = 0;
-
-for (var neuronIndex = 0;
-     neuronIndex < identityTable.Count;
-     neuronIndex++)
-{
-    if (identityTable.GetName(
-            neuronIndex) is not null)
-    {
-        namedNeurons++;
-    }
-
-    if (identityTable.GetPrimaryType(
-            neuronIndex) is not null)
-    {
-        typedNeurons++;
-    }
-
-    if (identityTable.GetClass(
-            neuronIndex) is not null)
-    {
-        classifiedNeurons++;
-    }
-
-    if (identityTable.GetSide(
-            neuronIndex) is not null)
-    {
-        sidedNeurons++;
-    }
-
-    if (identityTable.GetHemilineage(
-            neuronIndex) is not null)
-    {
-        hemilineageNeurons++;
-    }
-}
-
-Console.WriteLine();
-Console.WriteLine(
-    "Identity metadata coverage:");
-
-Console.WriteLine(
-    $"  Named:        " +
-    $"{namedNeurons,8:N0} " +
-    $"({namedNeurons * 100.0 / identityTable.Count,5:F1}%)");
-
-Console.WriteLine(
-    $"  Primary type: " +
-    $"{typedNeurons,8:N0} " +
-    $"({typedNeurons * 100.0 / identityTable.Count,5:F1}%)");
-
-Console.WriteLine(
-    $"  Classified:   " +
-    $"{classifiedNeurons,8:N0} " +
-    $"({classifiedNeurons * 100.0 / identityTable.Count,5:F1}%)");
-
-Console.WriteLine(
-    $"  Side:         " +
-    $"{sidedNeurons,8:N0} " +
-    $"({sidedNeurons * 100.0 / identityTable.Count,5:F1}%)");
-
-Console.WriteLine(
-    $"  Hemilineage:  " +
-    $"{hemilineageNeurons,8:N0} " +
-    $"({hemilineageNeurons * 100.0 / identityTable.Count,5:F1}%)");
-
 //
-// Coordinate metadata
+// Retain spatial and morphological information now even though the first
+// visual stimulus does not yet use full neuron geometry.
 //
 
 Console.WriteLine();
@@ -170,44 +101,9 @@ var positionTable =
         () => dataset.ReadCoordinates(),
         neuronIndexMap);
 
-var positionedNeurons = 0;
-var neuronsWithMultiplePositions = 0;
-
-for (var neuronIndex = 0;
-     neuronIndex < positionTable.NeuronCount;
-     neuronIndex++)
-{
-    var positionCount =
-        positionTable.GetPositionCount(
-            neuronIndex);
-
-    if (positionCount > 0)
-    {
-        positionedNeurons++;
-    }
-
-    if (positionCount > 1)
-    {
-        neuronsWithMultiplePositions++;
-    }
-}
-
 Console.WriteLine(
     $"Coordinate records: " +
     $"{positionTable.PositionCount:N0}");
-
-Console.WriteLine(
-    $"Neurons with coordinates: " +
-    $"{positionedNeurons:N0} / " +
-    $"{positionTable.NeuronCount:N0}");
-
-Console.WriteLine(
-    $"Neurons with multiple coordinates: " +
-    $"{neuronsWithMultiplePositions:N0}");
-
-//
-// Morphological metadata
-//
 
 Console.WriteLine();
 Console.WriteLine(
@@ -218,7 +114,8 @@ var morphologyTable =
         dataset.ReadCellStats(),
         neuronIndexMap);
 
-var morphologyNeurons = 0;
+var morphologyCount =
+    0;
 
 for (var neuronIndex = 0;
      neuronIndex < morphologyTable.Count;
@@ -227,24 +124,90 @@ for (var neuronIndex = 0;
     if (morphologyTable.HasStatistics(
             neuronIndex))
     {
-        morphologyNeurons++;
+        morphologyCount++;
     }
 }
 
 Console.WriteLine(
     $"Morphology metadata: " +
-    $"{morphologyNeurons:N0} / " +
+    $"{morphologyCount:N0} / " +
     $"{morphologyTable.Count:N0}");
 
 //
-// Structural connectome
+// Build the visual-system annotation layer.
+//
+// The catalogue is neuron-centric. The column map then groups those
+// neuron assignments into actual positions in visual space.
+//
+
+Console.WriteLine();
+Console.WriteLine(
+    "Building visual system...");
+
+var visualCatalog =
+    VisualNeuronCatalogBuilder.Build(
+        neuronIndexMap,
+        dataset.ReadVisualNeuronTypes(),
+        dataset.ReadColumnAssignments());
+
+var visualColumns =
+    VisualColumnMapBuilder.Build(
+        visualCatalog);
+
+var visualNeuronCount =
+    0;
+
+for (var neuronIndex = 0;
+     neuronIndex < visualCatalog.Count;
+     neuronIndex++)
+{
+    if (visualCatalog.IsVisualNeuron(
+            neuronIndex))
+    {
+        visualNeuronCount++;
+    }
+}
+
+var leftColumnCount =
+    visualColumns.Columns.Count(
+        column =>
+            column.Hemisphere.Equals(
+                "left",
+                StringComparison.OrdinalIgnoreCase));
+
+var rightColumnCount =
+    visualColumns.Columns.Count(
+        column =>
+            column.Hemisphere.Equals(
+                "right",
+                StringComparison.OrdinalIgnoreCase));
+
+Console.WriteLine(
+    $"Visual neurons: " +
+    $"{visualNeuronCount:N0}");
+
+Console.WriteLine(
+    $"Spatial columns: " +
+    $"{visualColumns.Count:N0}");
+
+Console.WriteLine(
+    $"  Left:  {leftColumnCount:N0}");
+
+Console.WriteLine(
+    $"  Right: {rightColumnCount:N0}");
+
+//
+// Build structural connectivity.
+//
+// The current filtered Princeton table contains 5.34 million aggregated
+// connections representing roughly 50.7 million anatomical synapses.
 //
 
 Console.WriteLine();
 Console.WriteLine(
     "Building compact connectome...");
 
-var connectomeBuildTimer =
+var connectomeTimer =
     Stopwatch.StartNew();
 
 var connectome =
@@ -252,11 +215,7 @@ var connectome =
         neuronIndexMap,
         () => dataset.ReadConnections());
 
-connectomeBuildTimer.Stop();
-
-Console.WriteLine();
-Console.WriteLine(
-    "Compact connectome built.");
+connectomeTimer.Stop();
 
 Console.WriteLine(
     $"Neurons:     " +
@@ -267,120 +226,15 @@ Console.WriteLine(
     $"{connectome.ConnectionCount:N0}");
 
 Console.WriteLine(
-    $"Neuropils:   " +
-    $"{connectome.NeuropilCount:N0}");
-
-Console.WriteLine(
     $"Build time:  " +
-    $"{connectomeBuildTimer.Elapsed.TotalSeconds:F2} s");
+    $"{connectomeTimer.Elapsed.TotalSeconds:F2} s");
 
 //
-// Connection neurotransmitter statistics
+// Build total postsynaptic input counts.
 //
-
-Console.WriteLine();
-Console.WriteLine(
-    "Connection neurotransmitter types:");
-
-var connectionTypeCounts =
-    new Dictionary<
-        NeurotransmitterType,
-        long>();
-
-var representedSynapsesByType =
-    new Dictionary<
-        NeurotransmitterType,
-        long>();
-
-foreach (var type in
-         Enum.GetValues<NeurotransmitterType>())
-{
-    connectionTypeCounts[type] = 0;
-    representedSynapsesByType[type] = 0;
-}
-
-for (var neuronIndex = 0;
-     neuronIndex < connectome.NeuronCount;
-     neuronIndex++)
-{
-    var neurotransmitterTypes =
-        connectome.GetNeurotransmitterTypes(
-            neuronIndex);
-
-    var synapseCounts =
-        connectome.GetSynapseCounts(
-            neuronIndex);
-
-    for (var connectionIndex = 0;
-         connectionIndex <
-         neurotransmitterTypes.Length;
-         connectionIndex++)
-    {
-        var type =
-            neurotransmitterTypes[
-                connectionIndex];
-
-        connectionTypeCounts[type]++;
-
-        representedSynapsesByType[type] +=
-            synapseCounts[
-                connectionIndex];
-    }
-}
-
-foreach (var type in
-         Enum.GetValues<NeurotransmitterType>())
-{
-    Console.WriteLine(
-        $"  {type,-16} " +
-        $"{connectionTypeCounts[type],10:N0} connections  " +
-        $"{representedSynapsesByType[type],12:N0} synapses");
-}
-
-//
-// Neuropil list
-//
-
-Console.WriteLine();
-Console.WriteLine("Neuropils:");
-
-for (var neuropilIndex = 0;
-     neuropilIndex < connectome.NeuropilCount;
-     neuropilIndex++)
-{
-    Console.WriteLine(
-        $"  {neuropilIndex,3}: " +
-        $"{connectome.GetNeuropilName((ushort)neuropilIndex)}");
-}
-
-//
-// Neuron-level predicted neurotransmitter statistics
-//
-
-Console.WriteLine();
-Console.WriteLine(
-    "Predicted neuron neurotransmitter types:");
-
-var neuronTypeCounts =
-    neurons
-        .GroupBy(
-            neuron =>
-                string.IsNullOrWhiteSpace(
-                    neuron.NeurotransmitterType)
-                    ? "Unknown"
-                    : neuron.NeurotransmitterType)
-        .OrderByDescending(
-            group => group.Count());
-
-foreach (var group in neuronTypeCounts)
-{
-    Console.WriteLine(
-        $"  {group.Key,-12} " +
-        $"{group.Count(),10:N0}");
-}
-
-//
-// Neural simulation
+// Both ordinary fast transmission and the first graded photoreceptor model
+// use connection strength relative to a target neuron's total anatomical
+// input rather than treating raw synapse count as a voltage.
 //
 
 Console.WriteLine();
@@ -391,13 +245,16 @@ var postsynapticInputs =
     PostsynapticInputTable.Build(
         connectome);
 
-Console.WriteLine(
-    $"Postsynaptic input totals: " +
-    $"{postsynapticInputs.Count:N0} neurons");
+//
+// Initialise the reference neural dynamics.
+//
+// LIF remains a provisional model for the spiking portion of the simulator.
+// Photoreceptors are handled separately below as graded sensory neurons.
+//
 
 Console.WriteLine();
 Console.WriteLine(
-    "Initialising full-brain neural simulation...");
+    "Initialising neural simulation...");
 
 var neuralParameters =
     LifNeuronParameters.Default;
@@ -407,359 +264,249 @@ var neuralState =
         connectome.NeuronCount,
         neuralParameters.RestingPotentialMv);
 
-var neuralModel =
-    new LifNeuronModel(
-        neuralParameters);
-
-var synapticEffectModel =
-    new FastTransmitterSynapticEffectModel(
-        postsynapticInputs,
-        fullInputDriveMv: 40f);
-
 var neuralSimulation =
     new NeuralSimulation(
         connectome,
         neuralState,
-        neuralModel,
-        synapticEffectModel);
+        new LifNeuronModel(
+            neuralParameters),
+        new FastTransmitterSynapticEffectModel(
+            postsynapticInputs,
+            fullInputAmplitudeMv: 40f));
 
 Console.WriteLine(
     $"Neural states: " +
     $"{neuralState.Count:N0}");
 
 //
-// First whole-brain timestep at rest
+// Establish a silent baseline before presenting visual input.
 //
 
 Console.WriteLine();
 Console.WriteLine(
-    "Running first whole-brain timestep...");
+    "Running resting timestep...");
 
-var neuralTimer =
-    Stopwatch.StartNew();
-
-neuralSimulation.Step(
-    timeStepMs: 1f);
-
-neuralTimer.Stop();
+var restingResult =
+    neuralSimulation.Step(
+        timeStepMs: 1f);
 
 Console.WriteLine(
-    $"Simulation time: " +
-    $"{neuralSimulation.SimulationTimeMs:F1} ms");
-
-Console.WriteLine(
-    $"Wall time: " +
-    $"{neuralTimer.Elapsed.TotalMilliseconds:F2} ms");
+    $"Neurons fired: " +
+    $"{restingResult.FiredNeuronCount:N0}");
 
 //
-// Stimulate one real neuron
+// Select the spatial column nearest the centre of the right visual field.
+//
+// P/Q are used for this diagnostic because they give us a convenient
+// column-space coordinate system. Mapping these coordinates onto actual
+// viewing angles and then onto DOOM pixels comes later.
+//
+
+var stimulusColumn =
+    FindCentralColumn(
+        visualColumns,
+        hemisphere: "right");
+
+Console.WriteLine();
+Console.WriteLine(
+    "Selected visual stimulus column:");
+
+Console.WriteLine(
+    $"  Hemisphere: {stimulusColumn.Hemisphere}");
+
+Console.WriteLine(
+    $"  Column ID:  {stimulusColumn.ColumnId}");
+
+Console.WriteLine(
+    $"  P/Q:        " +
+    $"{stimulusColumn.P:F2}, " +
+    $"{stimulusColumn.Q:F2}");
+
+Console.WriteLine(
+    $"  Neurons:    " +
+    $"{stimulusColumn.NeuronCount:N0}");
+
+//
+// Show the sensory neurons that will actually receive the light stimulus.
 //
 
 Console.WriteLine();
 Console.WriteLine(
-    "Stimulating a real FAFB neuron...");
+    "Column photoreceptors:");
 
-var stimulatedNeuronIndex =
-    FindCholinergicStimulusNeuron(
-        connectome);
+var columnPhotoreceptors =
+    stimulusColumn
+        .NeuronIndices
+        .Where(
+            neuronIndex =>
+                IsInnerPhotoreceptor(
+                    visualCatalog.GetType(
+                        neuronIndex)))
+        .ToArray();
 
-var stimulatedRootId =
-    neuronIndexMap.GetRootId(
-        stimulatedNeuronIndex);
-
-var stimulatedName =
-    identityTable.GetName(
-        stimulatedNeuronIndex)
-    ?? "(unnamed)";
-
-var stimulatedType =
-    identityTable.GetPrimaryType(
-        stimulatedNeuronIndex)
-    ?? "(untyped)";
-
-var stimulatedSide =
-    identityTable.GetSide(
-        stimulatedNeuronIndex)
-    ?? "(unknown)";
-
-var outgoingTargets =
-    connectome.GetPostsynapticIndices(
-        stimulatedNeuronIndex);
-
-var outgoingSynapseCounts =
-    connectome.GetSynapseCounts(
-        stimulatedNeuronIndex);
-
-var totalOutgoingSynapses = 0L;
-
-foreach (var synapseCount in
-         outgoingSynapseCounts)
-{
-    totalOutgoingSynapses +=
-        synapseCount;
-}
-
-Console.WriteLine(
-    $"Neuron index:     " +
-    $"{stimulatedNeuronIndex:N0}");
-
-Console.WriteLine(
-    $"Root ID:          " +
-    $"{stimulatedRootId}");
-
-Console.WriteLine(
-    $"Name:             " +
-    $"{stimulatedName}");
-
-Console.WriteLine(
-    $"Primary type:     " +
-    $"{stimulatedType}");
-
-Console.WriteLine(
-    $"Side:             " +
-    $"{stimulatedSide}");
-
-Console.WriteLine(
-    $"Connections:      " +
-    $"{outgoingTargets.Length:N0}");
-
-Console.WriteLine(
-    $"Outgoing synapses: " +
-    $"{totalOutgoingSynapses:N0}");
-
-//
-// The default reference LIF model begins at -60 mV and has a
-// threshold of -45 mV.
-//
-// With a 20 ms membrane time constant and 1 ms timestep, this
-// artificial 400 mV drive forces the neuron over threshold.
-//
-// This is only a diagnostic stimulus. It does not represent a
-// biologically measured sensory or synaptic input.
-//
-
-neuralState.AddSynapticDriveMv(
-    stimulatedNeuronIndex,
-    400f);
-
-var stimulusTimer =
-    Stopwatch.StartNew();
-
-neuralSimulation.Step(
-    timeStepMs: 1f);
-
-stimulusTimer.Stop();
-
-Console.WriteLine();
-Console.WriteLine(
-    $"Stimulated neuron fired: " +
-    $"{neuralState.DidFire(stimulatedNeuronIndex)}");
-
-Console.WriteLine(
-    $"Simulation time: " +
-    $"{neuralSimulation.SimulationTimeMs:F1} ms");
-
-Console.WriteLine(
-    $"Wall time: " +
-    $"{stimulusTimer.Elapsed.TotalMilliseconds:F2} ms");
-
-//
-// Determine which real FAFB neurons received fast synaptic drive
-// from the stimulated neuron.
-//
-
-var uniqueTargets =
-    new HashSet<int>();
-
-foreach (var targetIndex in
-         outgoingTargets)
-{
-    uniqueTargets.Add(
-        targetIndex);
-}
-
-var affectedTargets =
-    new List<(int Index, float Drive)>();
-
-foreach (var targetIndex in
-         uniqueTargets)
-{
-    var drive =
-        neuralState.GetSynapticDriveMv(
-            targetIndex);
-
-    if (drive != 0f)
-    {
-        affectedTargets.Add(
-            (
-                targetIndex,
-                drive
-            ));
-    }
-}
-
-affectedTargets.Sort(
-    (left, right) =>
-        MathF.Abs(right.Drive)
-            .CompareTo(
-                MathF.Abs(left.Drive)));
-
-Console.WriteLine();
-Console.WriteLine(
-    $"Unique outgoing targets: " +
-    $"{uniqueTargets.Count:N0}");
-
-Console.WriteLine(
-    $"Postsynaptic neurons receiving fast drive: " +
-    $"{affectedTargets.Count:N0}");
-
-Console.WriteLine();
-Console.WriteLine(
-    "Strongest queued postsynaptic effects:");
-
-if (affectedTargets.Count == 0)
+foreach (var neuronIndex in
+         columnPhotoreceptors)
 {
     Console.WriteLine(
-        "  No fast postsynaptic effects were generated.");
-}
-else
-{
-    foreach (var target in
-             affectedTargets.Take(10))
-    {
-        var rootId =
-            neuronIndexMap.GetRootId(
-                target.Index);
-
-        var name =
-            identityTable.GetName(
-                target.Index)
-            ?? "(unnamed)";
-
-        var primaryType =
-            identityTable.GetPrimaryType(
-                target.Index)
-            ?? "(untyped)";
-
-        Console.WriteLine(
-            $"  {target.Index,7:N0}  " +
-            $"{target.Drive,10:F4} mV  " +
-            $"{rootId}  " +
-            $"{name}  " +
-            $"[{primaryType}]");
-    }
+        $"  {visualCatalog.GetType(neuronIndex),-3} " +
+        $"{identityTable.GetName(neuronIndex) ?? "(unnamed)",-20} " +
+        $"{neuronIndexMap.GetRootId(neuronIndex)}");
 }
 
 //
-// Supplementary dataset smoke tests
+// Present the first spatially-addressed visual stimulus.
+//
+// Photoreceptors are non-spiking graded neurons, so this does NOT force
+// R7/R8 through the LIF threshold. Instead, the flash produces graded
+// histaminergic input directly through their real FAFB connections.
 //
 
 Console.WriteLine();
 Console.WriteLine(
-    "Checking supplementary datasets...");
+    "Applying full-intensity column flash...");
 
-var columnAssignmentCount =
-    dataset
-        .ReadColumnAssignments()
-        .Count();
+var photoreceptorStimulator =
+    new ColumnPhotoreceptorStimulator(
+        visualCatalog,
+        connectome,
+        postsynapticInputs,
+        fullHistamineInputAmplitudeMv: 40f);
 
-Console.WriteLine(
-    $"  Column assignments: " +
-    $"{columnAssignmentCount:N0}");
-
-var connectivityTagCount =
-    dataset
-        .ReadConnectivityTags()
-        .Count();
-
-Console.WriteLine(
-    $"  Connectivity tags: " +
-    $"{connectivityTagCount:N0}");
-
-var processedLabelCount =
-    dataset
-        .ReadProcessedLabels()
-        .Count();
+var stimulusResult =
+    photoreceptorStimulator.ApplyColumnFlash(
+        stimulusColumn,
+        neuralState,
+        intensity: 1f);
 
 Console.WriteLine(
-    $"  Processed labels: " +
-    $"{processedLabelCount:N0}");
-
-var visualNeuronTypeCount =
-    dataset
-        .ReadVisualNeuronTypes()
-        .Count();
+    $"Photoreceptors stimulated: " +
+    $"{stimulusResult.PhotoreceptorCount:N0}");
 
 Console.WriteLine(
-    $"  Visual neuron types: " +
-    $"{visualNeuronTypeCount:N0}");
-
-var synapseTableReadable =
-    dataset
-        .ReadSynapses()
-        .Any();
+    $"Connections carrying sensory input: " +
+    $"{stimulusResult.AppliedConnectionCount:N0}");
 
 Console.WriteLine(
-    $"  Individual synapse table readable: " +
-    $"{synapseTableReadable}");
+    $"Unique postsynaptic targets: " +
+    $"{stimulusResult.UniqueTargetCount:N0}");
+
+Console.WriteLine(
+    $"Strongest immediate inhibitory input: " +
+    $"{stimulusResult.MostNegativeInputAmplitudeMv:F4} mV-equiv");
+
+//
+// Follow the response after the brief flash.
+//
+// Minimum membrane voltage is important here because light-driven histamine
+// initially hyperpolarises first-order targets. Maximum voltage alone would
+// completely hide that response behind untouched neurons sitting at rest.
+//
 
 Console.WriteLine();
 Console.WriteLine(
-    "FAFB v783 import and neural smoke test completed successfully.");
+    "Visual response:");
 
-static int FindCholinergicStimulusNeuron(
-    CompactConnectome connectome)
+Console.WriteLine();
+
+Console.WriteLine(
+    $"{"Time",7} " +
+    $"{"Fired",8} " +
+    $"{"Synaptic",10} " +
+    $"{"Max input",12} " +
+    $"{"Min V",9} " +
+    $"{"Max V",9}");
+
+Console.WriteLine(
+    new string('-', 68));
+
+for (var step = 0;
+     step < 20;
+     step++)
 {
-    var bestNeuronIndex =
-        -1;
+    var result =
+        neuralSimulation.Step(
+            timeStepMs: 1f);
 
-    var bestCholinergicConnectionCount =
-        -1;
+    PrintStep(
+        result);
+}
 
-    for (var neuronIndex = 0;
-         neuronIndex < connectome.NeuronCount;
-         neuronIndex++)
+Console.WriteLine();
+Console.WriteLine(
+    "First spatial visual stimulus completed successfully.");
+
+static bool IsInnerPhotoreceptor(
+    string? type)
+{
+    return string.Equals(
+               type,
+               "R7",
+               StringComparison.OrdinalIgnoreCase) ||
+           string.Equals(
+               type,
+               "R8",
+               StringComparison.OrdinalIgnoreCase);
+}
+
+static VisualColumn FindCentralColumn(
+    VisualColumnMap columns,
+    string hemisphere)
+{
+    VisualColumn? bestColumn =
+        null;
+
+    var bestDistanceSquared =
+        double.PositiveInfinity;
+
+    foreach (var column in
+             columns.Columns)
     {
-        var neurotransmitters =
-            connectome.GetNeurotransmitterTypes(
-                neuronIndex);
-
-        if (neurotransmitters.Length == 0)
+        if (!column.Hemisphere.Equals(
+                hemisphere,
+                StringComparison.OrdinalIgnoreCase))
         {
             continue;
         }
 
-        var cholinergicConnections =
-            0;
-
-        foreach (var neurotransmitter
-                 in neurotransmitters)
+        if (!double.IsFinite(column.P) ||
+            !double.IsFinite(column.Q))
         {
-            if (neurotransmitter ==
-                NeurotransmitterType.Acetylcholine)
-            {
-                cholinergicConnections++;
-            }
+            continue;
         }
 
-        if (cholinergicConnections >
-            bestCholinergicConnectionCount)
+        var distanceSquared =
+            column.P * column.P +
+            column.Q * column.Q;
+
+        if (distanceSquared >=
+            bestDistanceSquared)
         {
-            bestCholinergicConnectionCount =
-                cholinergicConnections;
-
-            bestNeuronIndex =
-                neuronIndex;
+            continue;
         }
+
+        bestDistanceSquared =
+            distanceSquared;
+
+        bestColumn =
+            column;
     }
 
-    if (bestNeuronIndex < 0)
-    {
-        throw new InvalidOperationException(
-            "No cholinergic neuron with outgoing connections was found.");
-    }
+    return bestColumn
+        ?? throw new InvalidOperationException(
+            $"No visual column with finite P/Q coordinates " +
+            $"was found for hemisphere '{hemisphere}'.");
+}
 
-    return bestNeuronIndex;
+static void PrintStep(
+    NeuralStepStatistics result)
+{
+    Console.WriteLine(
+        $"{result.SimulationTimeMs,7:F1} " +
+        $"{result.FiredNeuronCount,8:N0} " +
+        $"{result.ActiveSynapticNeuronCount,10:N0} " +
+        $"{result.MaximumAbsoluteSynapticInputMv,12:F4} " +
+        $"{result.MinimumMembranePotentialMv,9:F3} " +
+        $"{result.MaximumMembranePotentialMv,9:F3}");
 }
 
 static DirectoryInfo FindRepositoryRoot()

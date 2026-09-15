@@ -7,34 +7,16 @@ namespace FlyDoom.Neural.Transmission;
 /// postsynaptic neuron.
 /// </summary>
 /// <remarks>
-/// Connectome synapse counts describe anatomical connectivity and are not
-/// themselves functional weights. Implementations of this interface define
-/// how anatomical evidence is translated into simulated synaptic drive.
+/// Anatomical synapse counts are structural evidence and are not themselves
+/// functional synaptic weights.
 /// </remarks>
 public interface ISynapticEffectModel
 {
     /// <summary>
-    /// Calculates the synaptic drive delivered by one aggregated connection.
+    /// Calculates the amplitude added to the postsynaptic neuron's
+    /// decaying synaptic input state.
     /// </summary>
-    /// <param name="presynapticIndex">
-    /// Compact index of the neuron that fired.
-    /// </param>
-    /// <param name="postsynapticIndex">
-    /// Compact index of the target neuron.
-    /// </param>
-    /// <param name="synapseCount">
-    /// Number of anatomical synapses represented by the connection.
-    /// </param>
-    /// <param name="neuropilIndex">
-    /// Compact index of the neuropil containing the connection.
-    /// </param>
-    /// <param name="neurotransmitterType">
-    /// Predicted neurotransmitter associated with the connection.
-    /// </param>
-    /// <returns>
-    /// Synaptic drive to add to the postsynaptic neuron.
-    /// </returns>
-    float CalculateDriveMv(
+    float CalculateInputAmplitudeMv(
         int presynapticIndex,
         int postsynapticIndex,
         int synapseCount,

@@ -28,14 +28,12 @@ public sealed class NeuralSimulationTests
     }
 
     [Fact]
-    public void Spike_PropagatesToConnectedNeuron()
+    public void Spike_PropagatesSynapticInput()
     {
         var simulation =
             CreateThreeNeuronChain();
 
-        // Neuron 0 receives external stimulation strong enough
-        // to make it fire during the first timestep.
-        simulation.State.AddSynapticDriveMv(
+        simulation.State.AddExternalDriveMv(
             0,
             20f);
 
@@ -47,15 +45,9 @@ public sealed class NeuralSimulationTests
         Assert.False(
             simulation.State.DidFire(1));
 
-        // Neuron 0's spike has now queued input for neuron 1.
         Assert.Equal(
             20f,
-            simulation.State.GetSynapticDriveMv(1));
-
-        simulation.Step(1f);
-
-        Assert.True(
-            simulation.State.DidFire(1));
+            simulation.State.GetSynapticInputMv(1));
     }
 
     [Fact]
@@ -64,7 +56,7 @@ public sealed class NeuralSimulationTests
         var simulation =
             CreateThreeNeuronChain();
 
-        simulation.State.AddSynapticDriveMv(
+        simulation.State.AddExternalDriveMv(
             0,
             20f);
 
@@ -82,6 +74,29 @@ public sealed class NeuralSimulationTests
 
         Assert.True(
             simulation.State.DidFire(2));
+    }
+
+    [Fact]
+    public void Step_ReportsActiveSynapticState()
+    {
+        var simulation =
+            CreateThreeNeuronChain();
+
+        simulation.State.AddExternalDriveMv(
+            0,
+            20f);
+
+        var result =
+            simulation.Step(1f);
+
+        Assert.True(
+            result.FiredNeuronCount > 0);
+
+        Assert.True(
+            result.ActiveSynapticNeuronCount > 0);
+
+        Assert.True(
+            result.MaximumAbsoluteSynapticInputMv > 0);
     }
 
     [Fact]
@@ -128,11 +143,12 @@ public sealed class NeuralSimulationTests
             new NeuralSimulation(
                 connectome,
                 state,
-                new LifNeuronModel(parameters),
+                new LifNeuronModel(
+                    parameters),
                 new FixedSynapticEffectModel(
-                    drivePerSynapseMv: 2f));
+                    inputPerSynapseMv: 2f));
 
-        state.AddSynapticDriveMv(
+        state.AddExternalDriveMv(
             0,
             20f);
 
@@ -140,7 +156,7 @@ public sealed class NeuralSimulationTests
 
         Assert.Equal(
             6f,
-            state.GetSynapticDriveMv(1));
+            state.GetSynapticInputMv(1));
     }
 
     [Fact]
@@ -162,8 +178,10 @@ public sealed class NeuralSimulationTests
                 new NeuralSimulation(
                     connectome,
                     state,
-                    new LifNeuronModel(parameters),
-                    new FixedSynapticEffectModel(20f)));
+                    new LifNeuronModel(
+                        parameters),
+                    new FixedSynapticEffectModel(
+                        20f)));
     }
 
     private static NeuralSimulation
@@ -180,29 +198,18 @@ public sealed class NeuralSimulationTests
                 connectome.NeuronCount,
                 parameters.RestingPotentialMv);
 
-        var neuronModel =
-            new LifNeuronModel(
-                parameters);
-
-        var synapticEffectModel =
-            new FixedSynapticEffectModel(
-                drivePerSynapseMv: 20f);
-
         return new NeuralSimulation(
             connectome,
             state,
-            neuronModel,
-            synapticEffectModel);
+            new LifNeuronModel(
+                parameters),
+            new FixedSynapticEffectModel(
+                inputPerSynapseMv: 20f));
     }
 
     private static CompactConnectome
         CreateChainConnectome()
     {
-        // Three neurons:
-        //
-        // 0 -> 1 -> 2
-        //
-        // Neuron 2 has no outgoing connections.
         return new CompactConnectome(
             outgoingOffsets:
             [
@@ -245,6 +252,7 @@ public sealed class NeuralSimulationTests
             resetPotentialMv: -65f,
             thresholdPotentialMv: -50f,
             membraneTimeConstantMs: 1f,
+            synapticTimeConstantMs: 5f,
             refractoryPeriodMs: 2f);
     }
 }

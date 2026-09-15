@@ -3,63 +3,51 @@
 namespace FlyDoom.Neural.Transmission;
 
 /// <summary>
-/// Estimates fast synaptic effects using predicted neurotransmitter
-/// identity and the fraction of a target neuron's anatomical input
-/// represented by a connection.
+/// Estimates fast synaptic input using predicted neurotransmitter identity
+/// and the fraction of the postsynaptic neuron's anatomical input represented
+/// by a connection.
 /// </summary>
 /// <remarks>
 /// This is an initial reference model.
 ///
-/// Acetylcholine is treated as excitatory, GABA as inhibitory, and
-/// glutamate as inhibitory for the initial CNS model.
+/// Acetylcholine is treated as excitatory, GABA as inhibitory, and glutamate
+/// as provisionally inhibitory.
 ///
-/// Glutamatergic signalling in Drosophila can be context-dependent, so
-/// this assumption should be replaced where more specific receptor or
-/// cell-type evidence is available.
+/// Dopamine, serotonin and octopamine are not assigned a fast voltage effect
+/// here because their modulatory roles will be modelled separately.
 ///
-/// Monoaminergic transmitters are not assigned a fast voltage effect
-/// here. Their modulatory roles will be modelled separately.
+/// The returned value is an input amplitude for the decaying synaptic state,
+/// not a direct change in membrane potential.
 /// </remarks>
 public sealed class FastTransmitterSynapticEffectModel :
     ISynapticEffectModel
 {
     private readonly PostsynapticInputTable _postsynapticInputs;
-    private readonly float _fullInputDriveMv;
+    private readonly float _fullInputAmplitudeMv;
 
-    /// <summary>
-    /// Initialises the fast transmitter effect model.
-    /// </summary>
-    /// <param name="postsynapticInputs">
-    /// Total anatomical input received by each neuron.
-    /// </param>
-    /// <param name="fullInputDriveMv">
-    /// Absolute drive corresponding to activation of 100% of a neuron's
-    /// anatomical input. This remains a modelling parameter rather than
-    /// a measured universal Drosophila value.
-    /// </param>
     public FastTransmitterSynapticEffectModel(
         PostsynapticInputTable postsynapticInputs,
-        float fullInputDriveMv)
+        float fullInputAmplitudeMv)
     {
         ArgumentNullException.ThrowIfNull(
             postsynapticInputs);
 
-        if (fullInputDriveMv <= 0 ||
-            !float.IsFinite(fullInputDriveMv))
+        if (fullInputAmplitudeMv <= 0 ||
+            !float.IsFinite(fullInputAmplitudeMv))
         {
             throw new ArgumentOutOfRangeException(
-                nameof(fullInputDriveMv));
+                nameof(fullInputAmplitudeMv));
         }
 
         _postsynapticInputs =
             postsynapticInputs;
 
-        _fullInputDriveMv =
-            fullInputDriveMv;
+        _fullInputAmplitudeMv =
+            fullInputAmplitudeMv;
     }
 
     /// <inheritdoc />
-    public float CalculateDriveMv(
+    public float CalculateInputAmplitudeMv(
         int presynapticIndex,
         int postsynapticIndex,
         int synapseCount,
@@ -96,7 +84,7 @@ public sealed class FastTransmitterSynapticEffectModel :
 
         return sign *
                inputFraction *
-               _fullInputDriveMv;
+               _fullInputAmplitudeMv;
     }
 
     private static float GetFastTransmissionSign(
@@ -108,9 +96,6 @@ public sealed class FastTransmitterSynapticEffectModel :
 
             NeurotransmitterType.Gaba => -1f,
 
-            // Frequently inhibitory in the Drosophila CNS, but this is
-            // explicitly a provisional assumption rather than a universal
-            // property of glutamatergic synapses.
             NeurotransmitterType.Glutamate => -1f,
 
             NeurotransmitterType.Dopamine => 0f,

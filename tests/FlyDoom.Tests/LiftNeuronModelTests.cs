@@ -3,9 +3,6 @@ using FlyDoom.Neural.Simulation;
 
 namespace FlyDoom.Tests;
 
-/// <summary>
-/// Tests basic leaky integrate-and-fire neuron dynamics.
-/// </summary>
 public sealed class LifNeuronModelTests
 {
     [Fact]
@@ -26,7 +23,7 @@ public sealed class LifNeuronModelTests
     }
 
     [Fact]
-    public void Step_DepolarisesNeuronWhenDriveIsPositive()
+    public void ExternalDrive_DepolarisesNeuron()
     {
         var parameters =
             LifNeuronParameters.Default;
@@ -37,15 +34,16 @@ public sealed class LifNeuronModelTests
                 parameters.RestingPotentialMv);
 
         var model =
-            new LifNeuronModel(parameters);
+            new LifNeuronModel(
+                parameters);
 
-        state.AddSynapticDriveMv(
+        state.AddExternalDriveMv(
             0,
             20f);
 
         model.Step(
             state,
-            timeStepMs: 1f);
+            1f);
 
         Assert.True(
             state.GetMembranePotentialMv(0) >
@@ -53,7 +51,7 @@ public sealed class LifNeuronModelTests
     }
 
     [Fact]
-    public void Step_ConsumesSynapticDrive()
+    public void ExternalDrive_IsConsumedAfterOneStep()
     {
         var parameters =
             LifNeuronParameters.Default;
@@ -64,9 +62,10 @@ public sealed class LifNeuronModelTests
                 parameters.RestingPotentialMv);
 
         var model =
-            new LifNeuronModel(parameters);
+            new LifNeuronModel(
+                parameters);
 
-        state.AddSynapticDriveMv(
+        state.AddExternalDriveMv(
             0,
             20f);
 
@@ -76,19 +75,14 @@ public sealed class LifNeuronModelTests
 
         Assert.Equal(
             0f,
-            state.GetSynapticDriveMv(0));
+            state.GetExternalDriveMv(0));
     }
 
     [Fact]
-    public void Step_FiresWhenThresholdIsReached()
+    public void SynapticInput_DecaysInsteadOfDisappearing()
     {
         var parameters =
-            new LifNeuronParameters(
-                restingPotentialMv: -60f,
-                resetPotentialMv: -65f,
-                thresholdPotentialMv: -50f,
-                membraneTimeConstantMs: 1f,
-                refractoryPeriodMs: 2f);
+            LifNeuronParameters.Default;
 
         var state =
             new NeuronStateTable(
@@ -96,9 +90,45 @@ public sealed class LifNeuronModelTests
                 parameters.RestingPotentialMv);
 
         var model =
-            new LifNeuronModel(parameters);
+            new LifNeuronModel(
+                parameters);
 
-        state.AddSynapticDriveMv(
+        state.AddSynapticInputMv(
+            0,
+            20f);
+
+        model.Step(
+            state,
+            1f);
+
+        var expected =
+            20f *
+            MathF.Exp(
+                -1f /
+                parameters.SynapticTimeConstantMs);
+
+        Assert.Equal(
+            expected,
+            state.GetSynapticInputMv(0),
+            precision: 4);
+    }
+
+    [Fact]
+    public void Step_FiresWhenThresholdIsReached()
+    {
+        var parameters =
+            CreateFastTestParameters();
+
+        var state =
+            new NeuronStateTable(
+                1,
+                parameters.RestingPotentialMv);
+
+        var model =
+            new LifNeuronModel(
+                parameters);
+
+        state.AddExternalDriveMv(
             0,
             20f);
 
@@ -119,15 +149,10 @@ public sealed class LifNeuronModelTests
     }
 
     [Fact]
-    public void Step_RefractoryNeuronCannotFireImmediatelyAgain()
+    public void RefractoryNeuron_CannotFireImmediatelyAgain()
     {
         var parameters =
-            new LifNeuronParameters(
-                restingPotentialMv: -60f,
-                resetPotentialMv: -65f,
-                thresholdPotentialMv: -50f,
-                membraneTimeConstantMs: 1f,
-                refractoryPeriodMs: 2f);
+            CreateFastTestParameters();
 
         var state =
             new NeuronStateTable(
@@ -135,9 +160,10 @@ public sealed class LifNeuronModelTests
                 parameters.RestingPotentialMv);
 
         var model =
-            new LifNeuronModel(parameters);
+            new LifNeuronModel(
+                parameters);
 
-        state.AddSynapticDriveMv(
+        state.AddExternalDriveMv(
             0,
             20f);
 
@@ -148,7 +174,7 @@ public sealed class LifNeuronModelTests
         Assert.True(
             state.DidFire(0));
 
-        state.AddSynapticDriveMv(
+        state.AddExternalDriveMv(
             0,
             100f);
 
@@ -165,7 +191,7 @@ public sealed class LifNeuronModelTests
     }
 
     [Fact]
-    public void Step_MembranePotentialLeaksTowardRest()
+    public void MembranePotential_LeaksTowardRest()
     {
         var parameters =
             LifNeuronParameters.Default;
@@ -176,7 +202,8 @@ public sealed class LifNeuronModelTests
                 initialMembranePotentialMv: -50f);
 
         var model =
-            new LifNeuronModel(parameters);
+            new LifNeuronModel(
+                parameters);
 
         model.Step(
             state,
@@ -205,7 +232,20 @@ public sealed class LifNeuronModelTests
                 -60f);
 
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => state.GetMembranePotentialMv(
-                neuronIndex));
+            () =>
+                state.GetMembranePotentialMv(
+                    neuronIndex));
+    }
+
+    private static LifNeuronParameters
+        CreateFastTestParameters()
+    {
+        return new LifNeuronParameters(
+            restingPotentialMv: -60f,
+            resetPotentialMv: -65f,
+            thresholdPotentialMv: -50f,
+            membraneTimeConstantMs: 1f,
+            synapticTimeConstantMs: 5f,
+            refractoryPeriodMs: 2f);
     }
 }

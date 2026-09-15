@@ -1,10 +1,14 @@
-﻿using FlyDoom.Connectome.Build;
+﻿using System.Diagnostics;
+using FlyDoom.Connectome.Build;
 using FlyDoom.Connectome.Import;
 using FlyDoom.Connectome.Model;
 using FlyDoom.Core.Biology;
-using System.Diagnostics;
+using FlyDoom.Neural.Models;
+using FlyDoom.Neural.Simulation;
+using FlyDoom.Neural.Transmission;
 
-var repoRoot = FindRepositoryRoot();
+var repoRoot =
+    FindRepositoryRoot();
 
 var dataDirectory =
     Path.Combine(
@@ -13,21 +17,31 @@ var dataDirectory =
         "fafb-v783",
         "raw");
 
-Console.WriteLine($"Repository: {repoRoot.FullName}");
-Console.WriteLine($"Data:       {dataDirectory}");
-Console.WriteLine();
+Console.WriteLine(
+    $"Repository: {repoRoot.FullName}");
 
+Console.WriteLine(
+    $"Data:       {dataDirectory}");
+
+Console.WriteLine();
 Console.WriteLine("FlyDoom FAFB v783");
 Console.WriteLine("=================");
 Console.WriteLine();
 
 var dataset =
-    new FafbDatasetReader(dataDirectory);
+    new FafbDatasetReader(
+        dataDirectory);
+
+//
+// Neuron identities and basic metadata
+//
 
 Console.WriteLine("Loading neurons...");
 
 var neurons =
-    dataset.ReadNeurons().ToList();
+    dataset
+        .ReadNeurons()
+        .ToList();
 
 Console.WriteLine(
     $"Neurons: {neurons.Count:N0}");
@@ -42,7 +56,8 @@ Console.WriteLine(
     $"{neuronIndexMap.Count - 1:N0}");
 
 Console.WriteLine();
-Console.WriteLine("Building neuron metadata...");
+Console.WriteLine(
+    "Building neuron metadata...");
 
 var neuronTable =
     CompactNeuronTableBuilder.Build(
@@ -50,7 +65,12 @@ var neuronTable =
         neuronIndexMap);
 
 Console.WriteLine(
-    $"Neuron metadata: {neuronTable.Count:N0}");
+    $"Neuron metadata: " +
+    $"{neuronTable.Count:N0}");
+
+//
+// Identity metadata
+//
 
 Console.WriteLine();
 Console.WriteLine(
@@ -64,7 +84,8 @@ var identityTable =
         dataset.ReadCellTypes());
 
 Console.WriteLine(
-    $"Neuron identities: {identityTable.Count:N0}");
+    $"Neuron identities: " +
+    $"{identityTable.Count:N0}");
 
 var namedNeurons = 0;
 var typedNeurons = 0;
@@ -108,7 +129,8 @@ for (var neuronIndex = 0;
 }
 
 Console.WriteLine();
-Console.WriteLine("Identity metadata coverage:");
+Console.WriteLine(
+    "Identity metadata coverage:");
 
 Console.WriteLine(
     $"  Named:        " +
@@ -135,8 +157,13 @@ Console.WriteLine(
     $"{hemilineageNeurons,8:N0} " +
     $"({hemilineageNeurons * 100.0 / identityTable.Count,5:F1}%)");
 
+//
+// Coordinate metadata
+//
+
 Console.WriteLine();
-Console.WriteLine("Building neuron positions...");
+Console.WriteLine(
+    "Building neuron positions...");
 
 var positionTable =
     CompactNeuronPositionTableBuilder.Build(
@@ -178,6 +205,10 @@ Console.WriteLine(
     $"Neurons with multiple coordinates: " +
     $"{neuronsWithMultiplePositions:N0}");
 
+//
+// Morphological metadata
+//
+
 Console.WriteLine();
 Console.WriteLine(
     "Building neuron morphology metadata...");
@@ -205,11 +236,15 @@ Console.WriteLine(
     $"{morphologyNeurons:N0} / " +
     $"{morphologyTable.Count:N0}");
 
+//
+// Structural connectome
+//
+
 Console.WriteLine();
 Console.WriteLine(
     "Building compact connectome...");
 
-var buildTimer =
+var connectomeBuildTimer =
     Stopwatch.StartNew();
 
 var connectome =
@@ -217,7 +252,7 @@ var connectome =
         neuronIndexMap,
         () => dataset.ReadConnections());
 
-buildTimer.Stop();
+connectomeBuildTimer.Stop();
 
 Console.WriteLine();
 Console.WriteLine(
@@ -231,15 +266,31 @@ Console.WriteLine(
     $"Connections: " +
     $"{connectome.ConnectionCount:N0}");
 
+Console.WriteLine(
+    $"Neuropils:   " +
+    $"{connectome.NeuropilCount:N0}");
+
+Console.WriteLine(
+    $"Build time:  " +
+    $"{connectomeBuildTimer.Elapsed.TotalSeconds:F2} s");
+
+//
+// Connection neurotransmitter statistics
+//
+
 Console.WriteLine();
 Console.WriteLine(
     "Connection neurotransmitter types:");
 
 var connectionTypeCounts =
-    new Dictionary<NeurotransmitterType, long>();
+    new Dictionary<
+        NeurotransmitterType,
+        long>();
 
 var representedSynapsesByType =
-    new Dictionary<NeurotransmitterType, long>();
+    new Dictionary<
+        NeurotransmitterType,
+        long>();
 
 foreach (var type in
          Enum.GetValues<NeurotransmitterType>())
@@ -286,26 +337,25 @@ foreach (var type in
         $"{representedSynapsesByType[type],12:N0} synapses");
 }
 
-Console.WriteLine();
-Console.WriteLine(
-    $"Neuropils: {connectome.NeuropilCount:N0}");
+//
+// Neuropil list
+//
 
 Console.WriteLine();
 Console.WriteLine("Neuropils:");
 
-for (var i = 0;
-     i < connectome.NeuropilCount;
-     i++)
+for (var neuropilIndex = 0;
+     neuropilIndex < connectome.NeuropilCount;
+     neuropilIndex++)
 {
     Console.WriteLine(
-        $"  {i,3}: " +
-        $"{connectome.GetNeuropilName((ushort)i)}");
+        $"  {neuropilIndex,3}: " +
+        $"{connectome.GetNeuropilName((ushort)neuropilIndex)}");
 }
 
-Console.WriteLine();
-Console.WriteLine(
-    $"Connectome build time: " +
-    $"{buildTimer.Elapsed.TotalSeconds:F2} s");
+//
+// Neuron-level predicted neurotransmitter statistics
+//
 
 Console.WriteLine();
 Console.WriteLine(
@@ -315,8 +365,10 @@ var neuronTypeCounts =
     neurons
         .GroupBy(
             neuron =>
-                neuron.NeurotransmitterType
-                ?? "Unknown")
+                string.IsNullOrWhiteSpace(
+                    neuron.NeurotransmitterType)
+                    ? "Unknown"
+                    : neuron.NeurotransmitterType)
         .OrderByDescending(
             group => group.Count());
 
@@ -326,6 +378,281 @@ foreach (var group in neuronTypeCounts)
         $"  {group.Key,-12} " +
         $"{group.Count(),10:N0}");
 }
+
+//
+// Neural simulation
+//
+
+Console.WriteLine();
+Console.WriteLine(
+    "Building postsynaptic input model...");
+
+var postsynapticInputs =
+    PostsynapticInputTable.Build(
+        connectome);
+
+Console.WriteLine(
+    $"Postsynaptic input totals: " +
+    $"{postsynapticInputs.Count:N0} neurons");
+
+Console.WriteLine();
+Console.WriteLine(
+    "Initialising full-brain neural simulation...");
+
+var neuralParameters =
+    LifNeuronParameters.Default;
+
+var neuralState =
+    new NeuronStateTable(
+        connectome.NeuronCount,
+        neuralParameters.RestingPotentialMv);
+
+var neuralModel =
+    new LifNeuronModel(
+        neuralParameters);
+
+var synapticEffectModel =
+    new FastTransmitterSynapticEffectModel(
+        postsynapticInputs,
+        fullInputDriveMv: 40f);
+
+var neuralSimulation =
+    new NeuralSimulation(
+        connectome,
+        neuralState,
+        neuralModel,
+        synapticEffectModel);
+
+Console.WriteLine(
+    $"Neural states: " +
+    $"{neuralState.Count:N0}");
+
+//
+// First whole-brain timestep at rest
+//
+
+Console.WriteLine();
+Console.WriteLine(
+    "Running first whole-brain timestep...");
+
+var neuralTimer =
+    Stopwatch.StartNew();
+
+neuralSimulation.Step(
+    timeStepMs: 1f);
+
+neuralTimer.Stop();
+
+Console.WriteLine(
+    $"Simulation time: " +
+    $"{neuralSimulation.SimulationTimeMs:F1} ms");
+
+Console.WriteLine(
+    $"Wall time: " +
+    $"{neuralTimer.Elapsed.TotalMilliseconds:F2} ms");
+
+//
+// Stimulate one real neuron
+//
+
+Console.WriteLine();
+Console.WriteLine(
+    "Stimulating a real FAFB neuron...");
+
+var stimulatedNeuronIndex =
+    FindCholinergicStimulusNeuron(
+        connectome);
+
+var stimulatedRootId =
+    neuronIndexMap.GetRootId(
+        stimulatedNeuronIndex);
+
+var stimulatedName =
+    identityTable.GetName(
+        stimulatedNeuronIndex)
+    ?? "(unnamed)";
+
+var stimulatedType =
+    identityTable.GetPrimaryType(
+        stimulatedNeuronIndex)
+    ?? "(untyped)";
+
+var stimulatedSide =
+    identityTable.GetSide(
+        stimulatedNeuronIndex)
+    ?? "(unknown)";
+
+var outgoingTargets =
+    connectome.GetPostsynapticIndices(
+        stimulatedNeuronIndex);
+
+var outgoingSynapseCounts =
+    connectome.GetSynapseCounts(
+        stimulatedNeuronIndex);
+
+var totalOutgoingSynapses = 0L;
+
+foreach (var synapseCount in
+         outgoingSynapseCounts)
+{
+    totalOutgoingSynapses +=
+        synapseCount;
+}
+
+Console.WriteLine(
+    $"Neuron index:     " +
+    $"{stimulatedNeuronIndex:N0}");
+
+Console.WriteLine(
+    $"Root ID:          " +
+    $"{stimulatedRootId}");
+
+Console.WriteLine(
+    $"Name:             " +
+    $"{stimulatedName}");
+
+Console.WriteLine(
+    $"Primary type:     " +
+    $"{stimulatedType}");
+
+Console.WriteLine(
+    $"Side:             " +
+    $"{stimulatedSide}");
+
+Console.WriteLine(
+    $"Connections:      " +
+    $"{outgoingTargets.Length:N0}");
+
+Console.WriteLine(
+    $"Outgoing synapses: " +
+    $"{totalOutgoingSynapses:N0}");
+
+//
+// The default reference LIF model begins at -60 mV and has a
+// threshold of -45 mV.
+//
+// With a 20 ms membrane time constant and 1 ms timestep, this
+// artificial 400 mV drive forces the neuron over threshold.
+//
+// This is only a diagnostic stimulus. It does not represent a
+// biologically measured sensory or synaptic input.
+//
+
+neuralState.AddSynapticDriveMv(
+    stimulatedNeuronIndex,
+    400f);
+
+var stimulusTimer =
+    Stopwatch.StartNew();
+
+neuralSimulation.Step(
+    timeStepMs: 1f);
+
+stimulusTimer.Stop();
+
+Console.WriteLine();
+Console.WriteLine(
+    $"Stimulated neuron fired: " +
+    $"{neuralState.DidFire(stimulatedNeuronIndex)}");
+
+Console.WriteLine(
+    $"Simulation time: " +
+    $"{neuralSimulation.SimulationTimeMs:F1} ms");
+
+Console.WriteLine(
+    $"Wall time: " +
+    $"{stimulusTimer.Elapsed.TotalMilliseconds:F2} ms");
+
+//
+// Determine which real FAFB neurons received fast synaptic drive
+// from the stimulated neuron.
+//
+
+var uniqueTargets =
+    new HashSet<int>();
+
+foreach (var targetIndex in
+         outgoingTargets)
+{
+    uniqueTargets.Add(
+        targetIndex);
+}
+
+var affectedTargets =
+    new List<(int Index, float Drive)>();
+
+foreach (var targetIndex in
+         uniqueTargets)
+{
+    var drive =
+        neuralState.GetSynapticDriveMv(
+            targetIndex);
+
+    if (drive != 0f)
+    {
+        affectedTargets.Add(
+            (
+                targetIndex,
+                drive
+            ));
+    }
+}
+
+affectedTargets.Sort(
+    (left, right) =>
+        MathF.Abs(right.Drive)
+            .CompareTo(
+                MathF.Abs(left.Drive)));
+
+Console.WriteLine();
+Console.WriteLine(
+    $"Unique outgoing targets: " +
+    $"{uniqueTargets.Count:N0}");
+
+Console.WriteLine(
+    $"Postsynaptic neurons receiving fast drive: " +
+    $"{affectedTargets.Count:N0}");
+
+Console.WriteLine();
+Console.WriteLine(
+    "Strongest queued postsynaptic effects:");
+
+if (affectedTargets.Count == 0)
+{
+    Console.WriteLine(
+        "  No fast postsynaptic effects were generated.");
+}
+else
+{
+    foreach (var target in
+             affectedTargets.Take(10))
+    {
+        var rootId =
+            neuronIndexMap.GetRootId(
+                target.Index);
+
+        var name =
+            identityTable.GetName(
+                target.Index)
+            ?? "(unnamed)";
+
+        var primaryType =
+            identityTable.GetPrimaryType(
+                target.Index)
+            ?? "(untyped)";
+
+        Console.WriteLine(
+            $"  {target.Index,7:N0}  " +
+            $"{target.Drive,10:F4} mV  " +
+            $"{rootId}  " +
+            $"{name}  " +
+            $"[{primaryType}]");
+    }
+}
+
+//
+// Supplementary dataset smoke tests
+//
 
 Console.WriteLine();
 Console.WriteLine(
@@ -378,7 +705,62 @@ Console.WriteLine(
 
 Console.WriteLine();
 Console.WriteLine(
-    "FAFB v783 import completed successfully.");
+    "FAFB v783 import and neural smoke test completed successfully.");
+
+static int FindCholinergicStimulusNeuron(
+    CompactConnectome connectome)
+{
+    var bestNeuronIndex =
+        -1;
+
+    var bestCholinergicConnectionCount =
+        -1;
+
+    for (var neuronIndex = 0;
+         neuronIndex < connectome.NeuronCount;
+         neuronIndex++)
+    {
+        var neurotransmitters =
+            connectome.GetNeurotransmitterTypes(
+                neuronIndex);
+
+        if (neurotransmitters.Length == 0)
+        {
+            continue;
+        }
+
+        var cholinergicConnections =
+            0;
+
+        foreach (var neurotransmitter
+                 in neurotransmitters)
+        {
+            if (neurotransmitter ==
+                NeurotransmitterType.Acetylcholine)
+            {
+                cholinergicConnections++;
+            }
+        }
+
+        if (cholinergicConnections >
+            bestCholinergicConnectionCount)
+        {
+            bestCholinergicConnectionCount =
+                cholinergicConnections;
+
+            bestNeuronIndex =
+                neuronIndex;
+        }
+    }
+
+    if (bestNeuronIndex < 0)
+    {
+        throw new InvalidOperationException(
+            "No cholinergic neuron with outgoing connections was found.");
+    }
+
+    return bestNeuronIndex;
+}
 
 static DirectoryInfo FindRepositoryRoot()
 {

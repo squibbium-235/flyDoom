@@ -3,6 +3,7 @@
   <Project Path="src/FlyDoom.Connectome/FlyDoom.Connectome.csproj" />
   <Project Path="src/FlyDoom.Core/FlyDoom.Core.csproj" />
   <Project Path="src/FlyDoom.Doom/FlyDoom.Doom.csproj" />
+  <Project Path="src/FlyDoom.Gui/FlyDoom.Gui.csproj" Id="9a71767b-3e8e-4f92-ada6-2197943da535" />
   <Project Path="src/FlyDoom.Learning/FlyDoom.Learning.csproj" />
   <Project Path="src/FlyDoom.Neural/FlyDoom.Neural.csproj" />
   <Project Path="src/FlyDoom.Vision/FlyDoom.Vision.csproj" />

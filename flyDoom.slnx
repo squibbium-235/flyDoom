@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/src/">
+    <Project Path="src/FlyDoom.Runtime/FlyDoom.Runtime.csproj" />
+  </Folder>
   <Project Path="src/FlyDoom.App/FlyDoom.App.csproj" />
   <Project Path="src/FlyDoom.Connectome/FlyDoom.Connectome.csproj" />
   <Project Path="src/FlyDoom.Core/FlyDoom.Core.csproj" />

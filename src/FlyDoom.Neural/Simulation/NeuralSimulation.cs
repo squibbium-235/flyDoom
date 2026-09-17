@@ -129,7 +129,7 @@ public sealed class NeuralSimulation
     /// </summary>
     /// <remarks>
     /// Graded sensory transmission, such as photoreceptor output, enters
-    /// synaptic state separately and therefore does not need to manufacture
+    /// synaptic state separately and therefore does not need to generate
     /// action potentials in neurons that are biologically non-spiking.
     /// </remarks>
     private long PropagateSpikes()

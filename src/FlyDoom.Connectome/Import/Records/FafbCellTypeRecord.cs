@@ -3,7 +3,7 @@
 namespace FlyDoom.Connectome.Import.Records;
 
 /// <summary>
-/// Represents one row from the FAFB v783 consolidated cell type dataset
+/// Represents one row from the FAFB v783 consolidated cell-type dataset.
 /// </summary>
 public sealed class FafbCellTypeRecord
 {

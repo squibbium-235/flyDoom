@@ -1,7 +1,7 @@
 ﻿namespace FlyDoom.Vision.Model;
 
 /// <summary>
-/// Stores visual-system annotations aligned with compact neuron indices.
+/// Stores visual-system annotations aligned with compact simulation indices.
 /// </summary>
 public sealed class VisualNeuronCatalog
 {

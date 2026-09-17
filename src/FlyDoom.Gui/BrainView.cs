@@ -69,8 +69,8 @@ public sealed class BrainView : Control
 
     //
     // Picking and programmatic focusing happen frequently once the activity
-    // viewer is interactive. Keep a direct neuron -> point lookup instead of
-    // scanning all 139,255 neurons every time somebody clicks something.
+    // viewer is interactive. Keep a direct neuron-to-point lookup instead of
+    // scanning the entire neuron population on every selection.
     //
 
     private readonly Dictionary<int, int> _pointIndexByNeuron =

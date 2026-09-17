@@ -1,11 +1,12 @@
 ﻿namespace FlyDoom.Connectome.Model;
 
 /// <summary>
-/// Maps dataset neuron IDs to compact, zero-based sim indices
+/// Maps dataset neuron identifiers to compact, zero-based simulation indices.
 /// </summary>
 /// <remarks>
-/// FlyWire rood IDs are large, sparce identifiers, meaning they can't be used as array indices
-/// This class assignes every neuron a contiguous integer index while preserving a mapping back to its original ID
+/// FlyWire root IDs are large, sparse identifiers, so they cannot be used as
+/// array indices. This class assigns every neuron a contiguous integer index
+/// while preserving a mapping back to its original identifier.
 /// </remarks>
 public sealed class NeuronIndexMap
 {
@@ -21,10 +22,10 @@ public sealed class NeuronIndexMap
     /// Creates a new neuron index mapping.
     /// </summary>
     /// <param name="rootIdToIndex">
-    /// Mapping from FlyWire root IDs to compact sim indices
+    /// Mapping from FlyWire root IDs to compact simulation indices.
     /// </param>
     /// <param name="indexToRootId">
-    /// Array mapping compact sim indices back to FlyWire root IDs.
+    /// Array mapping compact simulation indices back to FlyWire root IDs.
     /// </param>
     private NeuronIndexMap(
         Dictionary<long, int> rootIdToIndex,
@@ -38,10 +39,10 @@ public sealed class NeuronIndexMap
     /// Creates a compact index mapping from a sequence of neuron root IDs.
     /// </summary>
     /// <param name="rootIds">
-    /// The original neuron identifiers supplied by the connectome datasaet.
+    /// The original neuron identifiers supplied by the connectome dataset.
     /// </param>
     /// <returns>
-    /// A mapping between dataset root IDs and compact sim indices.
+    /// A mapping between dataset root IDs and compact simulation indices.
     /// </returns>
     /// <exception cref="InvalidDataException">
     /// Thrown if the dataset contains the same neuron root ID more than once.
@@ -53,12 +54,12 @@ public sealed class NeuronIndexMap
 
         foreach(var rootID in rootIds)
         {
-            // The current number of mapped neurons becomes the next avaliable
+            // The current number of mapped neurons becomes the next available
             // compact index: 0, 1, 2, 3, ...
             var index = indexToRootId.Count;
 
-            // Duplicate neuron IDs indicate inconsitent source data
-            // these should be detected here rather that breaking the simulation
+            // Duplicate neuron IDs indicate inconsistent source data.
+            // Detect them here rather than breaking the simulation later.
             if(!rootIdToIndex.TryAdd(rootID, index))
             {
                 throw new InvalidDataException(
@@ -74,7 +75,7 @@ public sealed class NeuronIndexMap
     }
 
     /// <summary>
-    /// Attempts to retrieve the sim index for a FlyWire rood ID.
+    /// Attempts to retrieve the simulation index for a FlyWire root ID.
     /// </summary>
     public bool TryGetIndex(long rootId, out int index)
     {
@@ -82,7 +83,7 @@ public sealed class NeuronIndexMap
     }
 
     /// <summary>
-    /// Gets the compact simulation index for a FlyWire root ID>
+    /// Gets the compact simulation index for a FlyWire root ID.
     /// </summary>
     /// <exception cref="KeyNotFoundException">
     /// Thrown if the root ID is not present in the mapping.
@@ -93,7 +94,7 @@ public sealed class NeuronIndexMap
     }
 
     /// <summary>
-    /// Gets the original FlyWire root ID associated with a sim index.
+    /// Gets the original FlyWire root ID associated with a simulation index.
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">
     /// Thrown if the supplied simulation index does not exist.

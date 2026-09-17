@@ -36,7 +36,7 @@ var dataset =
 
 //
 // The neuron list establishes the compact index space shared by the
-// connectome, biological metadata, visual system and simulation state.
+// connectome, biological metadata, visual system, and simulation state.
 //
 
 Console.WriteLine(

@@ -123,9 +123,9 @@ public sealed class NeuronStateTable
     /// Adds external drive that will be consumed during the next timestep.
     /// </summary>
     /// <remarks>
-    /// External drive is separate from recurrent synaptic input. This
-    /// provides an entry point for artificial experiments and, later,
-    /// sensory systems such as vision.
+    /// External drive is separate from recurrent synaptic input. It provides
+    /// a one-step injected stimulus for experiments. Graded sensory systems
+    /// such as vision currently add decaying synaptic input instead.
     /// </remarks>
     public void AddExternalDriveMv(
         int neuronIndex,

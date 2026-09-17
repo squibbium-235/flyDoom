@@ -34,7 +34,7 @@ public partial class MainWindow : Window
         //
         // Keep simulation execution deliberately slower than the rendering
         // refresh rate for now. One timer tick may advance several biological
-        // milliseconds depending on the selected control.
+        // milliseconds depending on the selected run speed.
         //
 
         _runTimer =

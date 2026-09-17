@@ -6,7 +6,7 @@ using FlyDoom.Connectome.Import;
 namespace FlyDoom.Connectome.Build;
 
 /// <summary>
-/// Builds compact per-neuron metadata aligned with simulation neuron indices.
+/// Builds per-neuron metadata aligned with compact simulation indices.
 /// </summary>
 public static class CompactNeuronTableBuilder
 {

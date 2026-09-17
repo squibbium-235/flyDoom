@@ -7,7 +7,7 @@ using FlyDoom.Vision.Model;
 namespace FlyDoom.Gui;
 
 /// <summary>
-/// Draws and allows selection of the spatial visual columns of both optic lobes.
+/// Draws the spatial visual columns of both optic lobes and allows a column to be selected.
 /// </summary>
 public sealed class VisualFieldView : Control
 {

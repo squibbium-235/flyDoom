@@ -3,8 +3,7 @@ using FlyDoom.Core.Biology;
 namespace FlyDoom.Connectome.Model;
 
 /// <summary>
-/// Stores connectome connectivity in compact contiguous arrays optimised
-/// for simulation.
+/// Stores connectivity in compact contiguous arrays optimised for simulation.
 /// </summary>
 /// <remarks>
 /// Connections are grouped by presynaptic neuron. The outgoing offset array

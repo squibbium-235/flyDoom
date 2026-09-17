@@ -6,7 +6,7 @@ namespace FlyDoom.Connectome.Import.Records;
 /// Represents one connection entry from the FAFB v783 Princeton connectivity dataset.
 /// </summary>
 /// <remarks>
-/// A connection row represents connectivity between two neurons withing
+/// A connection row represents connectivity between two neurons within
 /// a single neuropil and may represent multiple individual synapses.
 /// </remarks>
 public sealed class FafbConnectionRecord
@@ -36,7 +36,7 @@ public sealed class FafbConnectionRecord
     public int SynapseCount { get; init; }
 
     /// <summary>
-    /// Gets the predicted NT type of the presynaptic neuron.
+    /// Gets the predicted neurotransmitter type of the presynaptic neuron.
     /// </summary>
     [Name("nt_type")]
     public string? NeurotransmitterType { get; init; }

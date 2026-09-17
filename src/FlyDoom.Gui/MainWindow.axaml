@@ -184,9 +184,8 @@
                 <!--
                     Strongest current activity.
 
-                    This is now a real selectable list rather than a TextBox
-                    performing cosplay as a data table. Double-clicking a row
-                    navigates the 3D brain directly to that neuron.
+                    The list is selectable. Double-clicking a row navigates
+                    the 3D brain directly to that neuron.
                 -->
 
                 <Border

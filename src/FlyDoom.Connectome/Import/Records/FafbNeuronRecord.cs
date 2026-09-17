@@ -6,8 +6,8 @@ namespace FlyDoom.Connectome.Import.Records;
 /// Represents one row from the FAFB v783 neurons.csv dataset.
 /// </summary>
 /// <remarks>
-/// This type mirros the structure of the raw data
-/// it shouldnt be used as the simulated neuron model.
+/// This type mirrors the structure of the raw data.
+/// It should not be used as the simulated neuron model.
 /// </remarks>
 public sealed class FafbNeuronRecord
 {
@@ -18,19 +18,19 @@ public sealed class FafbNeuronRecord
     public long RootId { get; init; }
 
     /// <summary>
-    /// Gets the group assigned to the neuron, if one is avaliable.
+    /// Gets the group assigned to the neuron, if one is available.
     /// </summary>
     [Name("group")]
     public string? Group { get; init; }
 
     /// <summary>
-    /// Gets the predicted primary neurotransmitter (NT) type.
+    /// Gets the predicted primary neurotransmitter type.
     /// </summary>
     [Name("nt_type")]
     public string? NeurotransmitterType { get; init; }
 
     /// <summary>
-    /// Gets the confidence score for the predicted NT type
+    /// Gets the confidence score for the predicted neurotransmitter type.
     /// </summary>
     [Name("nt_type_score")]
     public double? NeurotransmitterTypeScore { get; init; }
@@ -42,7 +42,7 @@ public sealed class FafbNeuronRecord
     public double? DopamineAverage { get; init; }
 
     /// <summary>
-    /// Get sthe average predicted serotonin score.
+    /// Gets the average predicted serotonin score.
     /// </summary>
     [Name("ser_avg")]
     public double? SerotoninAverage { get; init; }
@@ -66,7 +66,7 @@ public sealed class FafbNeuronRecord
     public double? AcetylcholineAverage { get; init; }
 
     /// <summary>
-    /// Gets the average predicted octopamine score
+    /// Gets the average predicted octopamine score.
     /// </summary>
     [Name("oct_avg")]
     public double? OctopamineAverage { get; init; }

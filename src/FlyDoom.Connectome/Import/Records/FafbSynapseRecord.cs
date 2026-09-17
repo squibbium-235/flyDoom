@@ -3,8 +3,7 @@
 namespace FlyDoom.Connectome.Import.Records;
 
 /// <summary>
-/// Represents one individual synapse from the FAFB v783 Princeton
-/// synapse dataset.
+/// Represents one synapse from the FAFB v783 Princeton synapse dataset.
 /// </summary>
 public sealed class FafbSynapseRecord
 {

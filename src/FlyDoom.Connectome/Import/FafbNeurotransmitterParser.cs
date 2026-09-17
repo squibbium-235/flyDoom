@@ -3,12 +3,12 @@
 namespace FlyDoom.Connectome.Import;
 
 /// <summary>
-/// Converts FAFB neurotransmitter codes into FlyDoom NT types.
+/// Converts FAFB neurotransmitter codes into FlyDoom neurotransmitter types.
 /// </summary>
 internal static class FafbNeurotransmitterParser
 {
     /// <summary>
-    /// Parses a neurotransmitter code used by the FAFB dataset
+    /// Parses a neurotransmitter code used by the FAFB dataset.
     /// </summary>
     public static NeurotransmitterType Parse(string? value)
     {

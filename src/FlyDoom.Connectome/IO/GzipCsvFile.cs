@@ -9,14 +9,16 @@ public static class GzipCsvFile
 {
     /// <summary>
     /// Opens a gzip-compressed file and returns a text reader that
-    /// transparently decompresses the file as it is read
+    /// transparently decompresses the file as it is read.
     /// </summary>
-    /// <param name="path"></param>
+    /// <param name="path">
+    /// Path to the gzip-compressed CSV file.
+    /// </param>
     /// <returns>
-    /// A <see cref=StreamReader"/> for reading the decompressed contents.
+    /// A <see cref="StreamReader"/> for reading the decompressed contents.
     /// </returns>
     /// <exception cref="FileNotFoundException">
-    /// Thrown when the specified file doesn't exist
+    /// Thrown when the specified file does not exist.
     /// </exception>
     public static StreamReader Open(string path)
     {
@@ -27,11 +29,11 @@ public static class GzipCsvFile
                 path);
         }
 
-        // Open the compressed file WITHOUT loading the entire thing into memory
-        // This is important because some of the files are like 13 gigabytes
+        // Open the compressed file without loading the entire contents into
+        // memory. Some of the source files are several gigabytes.
         var fileStream = File.OpenRead(path);
 
-        // Decompress data as it is required rather than all at once
+        // Decompress data on demand rather than all at once.
         var gzipStream = new GZipStream(fileStream, CompressionMode.Decompress);
 
         return new StreamReader(gzipStream);

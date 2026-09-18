@@ -10,19 +10,27 @@ namespace FlyDoom.Neural.Simulation;
 public sealed class NeuralSimulation
 {
     private readonly CompactConnectome _connectome;
+
     private readonly NeuronStateTable _state;
+
     private readonly LifNeuronModel _neuronModel;
+
     private readonly ISynapticEffectModel _synapticEffectModel;
 
     /// <summary>
     /// Gets the mutable runtime state of the simulated neurons.
     /// </summary>
-    public NeuronStateTable State => _state;
+    public NeuronStateTable State =>
+        _state;
 
     /// <summary>
     /// Gets the amount of simulated time that has elapsed.
     /// </summary>
-    public double SimulationTimeMs { get; private set; }
+    public double SimulationTimeMs
+    {
+        get;
+        private set;
+    }
 
     public NeuralSimulation(
         CompactConnectome connectome,
@@ -65,13 +73,29 @@ public sealed class NeuralSimulation
     }
 
     /// <summary>
+    /// Restores the short-term electrical simulation to its initial state.
+    /// </summary>
+    /// <remarks>
+    /// Structural connectivity and future learned long-term parameters remain
+    /// untouched. Only transient electrical state and simulation time reset.
+    /// </remarks>
+    public void Reset()
+    {
+        _state.Reset();
+
+        SimulationTimeMs =
+            0;
+    }
+
+    /// <summary>
     /// Advances the complete neural simulation by one timestep.
     /// </summary>
     public NeuralStepStatistics Step(
         float timeStepMs)
     {
         if (timeStepMs <= 0 ||
-            !float.IsFinite(timeStepMs))
+            !float.IsFinite(
+                timeStepMs))
         {
             throw new ArgumentOutOfRangeException(
                 nameof(timeStepMs));
@@ -115,7 +139,8 @@ public sealed class NeuralSimulation
              neuronIndex < fired.Length;
              neuronIndex++)
         {
-            if (fired[neuronIndex])
+            if (fired[
+                    neuronIndex])
             {
                 count++;
             }
@@ -128,9 +153,9 @@ public sealed class NeuralSimulation
     /// Propagates spike-triggered synaptic output.
     /// </summary>
     /// <remarks>
-    /// Graded sensory transmission, such as photoreceptor output, enters
-    /// synaptic state separately and therefore does not need to manufacture
-    /// action potentials in neurons that are biologically non-spiking.
+    /// Graded sensory transmission enters synaptic state separately and
+    /// therefore does not need to manufacture action potentials in neurons
+    /// that are biologically non-spiking.
     /// </remarks>
     private long PropagateSpikes()
     {
@@ -141,47 +166,59 @@ public sealed class NeuralSimulation
             0;
 
         for (var presynapticIndex = 0;
-             presynapticIndex < _connectome.NeuronCount;
+             presynapticIndex <
+             _connectome.NeuronCount;
              presynapticIndex++)
         {
-            if (!fired[presynapticIndex])
+            if (!fired[
+                    presynapticIndex])
             {
                 continue;
             }
 
             var targets =
-                _connectome.GetPostsynapticIndices(
-                    presynapticIndex);
+                _connectome
+                    .GetPostsynapticIndices(
+                        presynapticIndex);
 
             var synapseCounts =
-                _connectome.GetSynapseCounts(
-                    presynapticIndex);
+                _connectome
+                    .GetSynapseCounts(
+                        presynapticIndex);
 
             var neuropils =
-                _connectome.GetNeuropilIndices(
-                    presynapticIndex);
+                _connectome
+                    .GetNeuropilIndices(
+                        presynapticIndex);
 
             var neurotransmitters =
-                _connectome.GetNeurotransmitterTypes(
-                    presynapticIndex);
+                _connectome
+                    .GetNeurotransmitterTypes(
+                        presynapticIndex);
 
             for (var connectionIndex = 0;
-                 connectionIndex < targets.Length;
+                 connectionIndex <
+                 targets.Length;
                  connectionIndex++)
             {
                 var postsynapticIndex =
-                    targets[connectionIndex];
+                    targets[
+                        connectionIndex];
 
                 var inputAmplitude =
                     _synapticEffectModel
                         .CalculateInputAmplitudeMv(
                             presynapticIndex,
                             postsynapticIndex,
-                            synapseCounts[connectionIndex],
-                            neuropils[connectionIndex],
-                            neurotransmitters[connectionIndex]);
+                            synapseCounts[
+                                connectionIndex],
+                            neuropils[
+                                connectionIndex],
+                            neurotransmitters[
+                                connectionIndex]);
 
-                if (inputAmplitude == 0f)
+                if (inputAmplitude ==
+                    0f)
                 {
                     continue;
                 }
@@ -228,13 +265,16 @@ public sealed class NeuralSimulation
         {
             var absoluteInput =
                 MathF.Abs(
-                    synapticInputs[neuronIndex]);
+                    synapticInputs[
+                        neuronIndex]);
 
             //
             // Ignore tiny floating-point remnants left after exponential
             // synaptic decay.
             //
-            if (absoluteInput > 0.0001f)
+
+            if (absoluteInput >
+                0.0001f)
             {
                 activeSynapticNeuronCount++;
             }
@@ -246,18 +286,22 @@ public sealed class NeuralSimulation
                     absoluteInput;
             }
 
-            if (membranePotentials[neuronIndex] <
+            if (membranePotentials[
+                    neuronIndex] <
                 minimumMembranePotentialMv)
             {
                 minimumMembranePotentialMv =
-                    membranePotentials[neuronIndex];
+                    membranePotentials[
+                        neuronIndex];
             }
 
-            if (membranePotentials[neuronIndex] >
+            if (membranePotentials[
+                    neuronIndex] >
                 maximumMembranePotentialMv)
             {
                 maximumMembranePotentialMv =
-                    membranePotentials[neuronIndex];
+                    membranePotentials[
+                        neuronIndex];
             }
         }
 

@@ -6,6 +6,7 @@ using FlyDoom.Neural.Simulation;
 using FlyDoom.Neural.Transmission;
 using FlyDoom.Vision.Build;
 using FlyDoom.Vision.Stimulation;
+using FlyDoom.Vision.Transmission;
 
 namespace FlyDoom.Runtime;
 
@@ -18,12 +19,6 @@ public static class FlyDoomBootstrap
     /// Loads FAFB v783 and initialises the current reference neural and visual
     /// models.
     /// </summary>
-    /// <param name="dataDirectory">
-    /// Directory containing the raw FAFB v783 compressed CSV files.
-    /// </param>
-    /// <returns>
-    /// A fully initialised runtime ready for simulation.
-    /// </returns>
     public static FlyDoomRuntime LoadFafbV783(
         string dataDirectory)
     {
@@ -35,8 +30,8 @@ public static class FlyDoomBootstrap
                 dataDirectory);
 
         //
-        // The neuron list defines the compact index space shared by every
-        // component of the simulation.
+        // The master neuron table defines the compact integer index space used
+        // throughout the simulation.
         //
 
         var neurons =
@@ -47,10 +42,11 @@ public static class FlyDoomBootstrap
         var neuronIndexMap =
             NeuronIndexMap.Create(
                 neurons.Select(
-                    neuron => neuron.RootId));
+                    neuron =>
+                        neuron.RootId));
 
         //
-        // Build static biological and annotation data.
+        // Static biological metadata.
         //
 
         var neuronTable =
@@ -67,7 +63,8 @@ public static class FlyDoomBootstrap
 
         var positionTable =
             CompactNeuronPositionTableBuilder.Build(
-                () => dataset.ReadCoordinates(),
+                () =>
+                    dataset.ReadCoordinates(),
                 neuronIndexMap);
 
         var morphologyTable =
@@ -76,9 +73,7 @@ public static class FlyDoomBootstrap
                 neuronIndexMap);
 
         //
-        // Build visual-system topology separately from the structural
-        // connectome so the visual front end can address spatial columns
-        // directly.
+        // Visual-system annotation.
         //
 
         var visualCatalog =
@@ -92,24 +87,41 @@ public static class FlyDoomBootstrap
                 visualCatalog);
 
         //
-        // Build structural connectivity.
+        // Structural FAFB connectome.
         //
 
         var connectome =
             CompactConnectomeBuilder.Build(
                 neuronIndexMap,
-                () => dataset.ReadConnections());
+                () =>
+                    dataset.ReadConnections());
+
+        //
+        // Reconstruct the R1-R6 neural-superposition cartridges from actual
+        // FAFB connectivity to column-assigned L1/L2 landmarks.
+        //
+
+        var r1R6CartridgeMap =
+            R1R6CartridgeMapBuilder.Build(
+                visualCatalog,
+                connectome);
+
+        //
+        // Total structural input is used as a normalisation reference.
+        //
+        // Synapse count remains anatomical evidence rather than being treated
+        // directly as an electrical weight.
+        //
 
         var postsynapticInputs =
             PostsynapticInputTable.Build(
                 connectome);
 
         //
-        // Initialise mutable runtime neural state.
+        // Mutable neural state.
         //
-        // These parameters remain provisional reference-model assumptions.
-        // They should not be interpreted as universal measured values for
-        // every neuron in the fly.
+        // LIF remains a provisional reference model for neurons without a
+        // better evidence-backed electrophysiological representation.
         //
 
         var neuralParameters =
@@ -131,9 +143,39 @@ public static class FlyDoomBootstrap
                     fullInputAmplitudeMv: 40f));
 
         //
-        // R7/R8 visual stimulation currently uses graded histaminergic
-        // transmission rather than forcing non-spiking photoreceptors through
-        // the reference LIF model.
+        // Graded transmission for L1/L2/L3.
+        //
+        // referenceVoltageRangeMv:
+        //     Membrane deviation producing saturated graded output.
+        //
+        // fullEffectAmplitudeMv:
+        //     Same provisional full-input scale used by the current fast
+        //     synaptic reference model.
+        //
+        // synapticTimeConstantMs:
+        //     Matches the current 5 ms synaptic decay used elsewhere in the
+        //     reference simulation.
+        //
+
+        var gradedVisualTransmission =
+            new GradedVisualTransmissionModel(
+                visualCatalog,
+                connectome,
+                postsynapticInputs,
+                restingPotentialMv:
+                    neuralParameters.RestingPotentialMv,
+                referenceVoltageRangeMv:
+                    20f,
+                fullEffectAmplitudeMv:
+                    40f,
+                synapticTimeConstantMs:
+                    5f);
+
+        //
+        // Photoreceptors themselves are graded sensory neurons.
+        //
+        // They currently enter the simulation through an explicit histaminergic
+        // stimulus model rather than the generic LIF spike path.
         //
 
         var photoreceptorStimulator =
@@ -141,7 +183,9 @@ public static class FlyDoomBootstrap
                 visualCatalog,
                 connectome,
                 postsynapticInputs,
-                fullHistamineInputAmplitudeMv: 40f);
+                r1R6CartridgeMap,
+                fullHistamineInputAmplitudeMv:
+                    40f);
 
         return new FlyDoomRuntime(
             neuronIndexMap,
@@ -152,8 +196,10 @@ public static class FlyDoomBootstrap
             connectome,
             visualCatalog,
             visualColumns,
+            r1R6CartridgeMap,
             neuralState,
             neuralSimulation,
+            gradedVisualTransmission,
             photoreceptorStimulator);
     }
 }

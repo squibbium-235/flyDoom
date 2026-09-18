@@ -7,29 +7,41 @@ using FlyDoom.Vision.Model;
 namespace FlyDoom.Gui;
 
 /// <summary>
-/// Draws and allows selection of the spatial visual columns of both optic lobes.
+/// Draws the spatial visual columns, current visual stimulus and interactive
+/// stimulus anchor.
 /// </summary>
 public sealed class VisualFieldView : Control
 {
+    private const double ColumnSelectionRadius =
+        22.0;
+
+    private const int StimulusBrushLevels =
+        12;
+
     private static readonly IBrush ColumnBrush =
         new SolidColorBrush(
             Color.FromArgb(
-                150,
+                120,
+                105,
                 125,
-                145,
-                170));
+                150));
 
-    private static readonly IBrush StimulatedBrush =
+    private static readonly IBrush[] StimulusBrushes =
+        CreateStimulusBrushes();
+
+    private static readonly IBrush SelectedBrush =
         new SolidColorBrush(
             Color.FromRgb(
                 255,
-                180,
-                55));
+                170,
+                45));
 
     private VisualColumnPoint[] _points =
         [];
 
     private VisualColumn? _stimulatedColumn;
+
+    private VisualFieldFrame? _frame;
 
     /// <summary>
     /// Raised when a spatial visual column is clicked.
@@ -43,7 +55,7 @@ public sealed class VisualFieldView : Control
     }
 
     /// <summary>
-    /// Loads the spatial visual-column map into the viewer.
+    /// Loads the visual-column map into the viewer.
     /// </summary>
     public void SetColumns(
         VisualColumnMap columns)
@@ -58,7 +70,19 @@ public sealed class VisualFieldView : Control
     }
 
     /// <summary>
-    /// Highlights the visual column that will receive the next stimulus.
+    /// Sets the visual frame currently being previewed.
+    /// </summary>
+    public void SetFrame(
+        VisualFieldFrame? frame)
+    {
+        _frame =
+            frame;
+
+        InvalidateVisual();
+    }
+
+    /// <summary>
+    /// Highlights the column used as the stimulus anchor.
     /// </summary>
     public void SetStimulatedColumn(
         VisualColumn? column)
@@ -74,6 +98,15 @@ public sealed class VisualFieldView : Control
     {
         base.Render(
             context);
+
+        context.DrawRectangle(
+            Brushes.Transparent,
+            null,
+            new Rect(
+                0,
+                0,
+                Bounds.Width,
+                Bounds.Height));
 
         if (_points.Length == 0)
         {
@@ -95,23 +128,60 @@ public sealed class VisualFieldView : Control
                 Bounds.Height -
                 padding * 2);
 
-        foreach (var point in
-                 _points)
+        for (var pointIndex = 0;
+             pointIndex < _points.Length;
+             pointIndex++)
         {
+            var point =
+                _points[
+                    pointIndex];
+
+            var intensity =
+                GetFrameIntensity(
+                    point.Column);
+
             var selected =
-                ReferenceEquals(
+                IsSameColumn(
                     point.Column,
                     _stimulatedColumn);
 
-            var brush =
-                selected
-                    ? StimulatedBrush
-                    : ColumnBrush;
+            IBrush brush;
 
-            var radius =
-                selected
-                    ? 5.0
-                    : 1.8;
+            double radius;
+
+            if (selected)
+            {
+                brush =
+                    SelectedBrush;
+
+                radius =
+                    5.0;
+            }
+            else if (intensity > 0)
+            {
+                var level =
+                    Math.Clamp(
+                        (int)(
+                            intensity *
+                            (StimulusBrushLevels - 1)),
+                        0,
+                        StimulusBrushLevels - 1);
+
+                brush =
+                    StimulusBrushes[
+                        level];
+
+                radius =
+                    2.8;
+            }
+            else
+            {
+                brush =
+                    ColumnBrush;
+
+                radius =
+                    1.6;
+            }
 
             var screenPoint =
                 new Point(
@@ -129,6 +199,34 @@ public sealed class VisualFieldView : Control
                 radius,
                 radius);
         }
+    }
+
+    private float GetFrameIntensity(
+        VisualColumn column)
+    {
+        if (_frame is null)
+        {
+            return 0;
+        }
+
+        for (var columnIndex = 0;
+             columnIndex <
+             _frame.ColumnMap.Columns.Count;
+             columnIndex++)
+        {
+            if (!IsSameColumn(
+                    _frame.ColumnMap.Columns[
+                        columnIndex],
+                    column))
+            {
+                continue;
+            }
+
+            return _frame.GetIntensity(
+                columnIndex);
+        }
+
+        return 0;
     }
 
     private void BuildPoints(
@@ -290,8 +388,8 @@ public sealed class VisualFieldView : Control
             null;
 
         var bestDistanceSquared =
-            12d *
-            12d;
+            ColumnSelectionRadius *
+            ColumnSelectionRadius;
 
         foreach (var point in
                  _points)
@@ -334,6 +432,53 @@ public sealed class VisualFieldView : Control
         }
 
         return bestColumn;
+    }
+
+    private static bool IsSameColumn(
+        VisualColumn first,
+        VisualColumn? second)
+    {
+        if (second is null)
+        {
+            return false;
+        }
+
+        return string.Equals(
+                   first.Hemisphere,
+                   second.Hemisphere,
+                   StringComparison.OrdinalIgnoreCase) &&
+               string.Equals(
+                   first.ColumnId,
+                   second.ColumnId,
+                   StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static IBrush[] CreateStimulusBrushes()
+    {
+        var brushes =
+            new IBrush[
+                StimulusBrushLevels];
+
+        for (var level = 0;
+             level < brushes.Length;
+             level++)
+        {
+            var brightness =
+                (byte)(
+                    100 +
+                    level *
+                    14);
+
+            brushes[
+                level] =
+                new SolidColorBrush(
+                    Color.FromRgb(
+                        brightness,
+                        brightness,
+                        brightness));
+        }
+
+        return brushes;
     }
 
     private readonly record struct VisualColumnPoint(

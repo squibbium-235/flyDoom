@@ -5,38 +5,47 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:local="using:FlyDoom.Gui"
     mc:Ignorable="d"
-    d:DesignWidth="1500"
+    d:DesignWidth="1600"
     d:DesignHeight="950"
     x:Class="FlyDoom.Gui.MainWindow"
     Title="FlyDoom"
-    Width="1500"
+    Width="1600"
     Height="950"
-    MinWidth="1100"
-    MinHeight="750">
+    MinWidth="1000"
+    MinHeight="700">
 
     <Grid
-        RowDefinitions="Auto,*,Auto"
+        RowDefinitions="Auto,Auto,*"
         Background="#0D1117">
 
-        <!-- Header -->
+        <!-- Application header -->
 
         <Border
             Grid.Row="0"
             Background="#161B22"
-            Padding="16">
+            Padding="14,10">
 
             <Grid
                 ColumnDefinitions="Auto,*">
 
-                <StackPanel>
+                <StackPanel
+                    Orientation="Horizontal"
+                    Spacing="12">
+
                     <TextBlock
                         Text="FlyDoom"
-                        FontSize="24"
+                        FontSize="22"
                         FontWeight="Bold"/>
+
+                    <Border
+                        Width="1"
+                        Height="24"
+                        Background="#30363D"/>
 
                     <TextBlock
                         Text="FAFB v783 whole-brain simulation"
-                        Opacity="0.65"/>
+                        VerticalAlignment="Center"
+                        Opacity="0.60"/>
                 </StackPanel>
 
                 <TextBlock
@@ -45,22 +54,148 @@
                     HorizontalAlignment="Right"
                     VerticalAlignment="Center"
                     Text="Waiting to load..."
-                    FontSize="14"/>
+                    FontSize="13"
+                    Opacity="0.85"/>
             </Grid>
         </Border>
 
-        <!-- Main visualisation area -->
+        <!-- Command bar -->
+
+        <Border
+            Grid.Row="1"
+            Background="#1C2128"
+            BorderBrush="#30363D"
+            BorderThickness="0,1,0,1"
+            Padding="8,5">
+
+            <Grid
+                ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*"
+                ColumnSpacing="6">
+
+                <TextBlock
+                    Grid.Column="0"
+                    VerticalAlignment="Center"
+                    Text="Stimulus"
+                    FontSize="12"
+                    Opacity="0.65"/>
+
+                <ComboBox
+                    x:Name="StimulusModeComboBox"
+                    Grid.Column="1"
+                    Width="135"
+                    SelectedIndex="0"
+                    SelectionChanged="StimulusModeComboBox_OnSelectionChanged">
+
+                    <ComboBoxItem Content="Single column" Tag="column"/>
+                    <ComboBoxItem Content="Spot" Tag="spot"/>
+                    <ComboBoxItem Content="Vertical bar" Tag="bar"/>
+                    <ComboBoxItem Content="Vertical edge" Tag="edge"/>
+                    <ComboBoxItem Content="Moving edge" Tag="moving-edge"/>
+                </ComboBox>
+
+                <Button
+                    x:Name="FlashButton"
+                    Grid.Column="2"
+                    Content="Present once"
+                    IsEnabled="False"
+                    Click="FlashButton_OnClick"/>
+
+                <ToggleButton
+                    x:Name="LiveStimulusToggleButton"
+                    Grid.Column="3"
+                    Content="Live stimulus"
+                    IsEnabled="False"
+                    IsThreeState="False"
+                    IsCheckedChanged="LiveStimulusToggleButton_OnIsCheckedChanged"/>
+
+                <Border
+                    Grid.Column="4"
+                    Width="1"
+                    Height="24"
+                    Margin="5,0"
+                    Background="#484F58"/>
+
+                <Button
+                    x:Name="RunPauseButton"
+                    Grid.Column="5"
+                    Content="Run"
+                    IsEnabled="False"
+                    Click="RunPauseButton_OnClick"/>
+
+                <Button
+                    x:Name="StepButton"
+                    Grid.Column="6"
+                    Content="Step 1 ms"
+                    IsEnabled="False"
+                    Click="StepButton_OnClick"/>
+
+                <Button
+                    x:Name="AdvanceButton"
+                    Grid.Column="7"
+                    Content="+10 ms"
+                    IsEnabled="False"
+                    Click="AdvanceButton_OnClick"/>
+
+                <Button
+                    x:Name="ResetViewButton"
+                    Grid.Column="8"
+                    Content="Reset view"
+                    IsEnabled="False"
+                    Click="ResetViewButton_OnClick"/>
+
+                <TextBlock
+                    Grid.Column="9"
+                    Margin="8,0,0,0"
+                    VerticalAlignment="Center"
+                    Text="Layout"
+                    FontSize="12"
+                    Opacity="0.65"/>
+
+                <ComboBox
+                    x:Name="LayoutModeComboBox"
+                    Grid.Column="10"
+                    Width="120"
+                    SelectedIndex="0"
+                    SelectionChanged="LayoutModeComboBox_OnSelectionChanged">
+
+                    <ComboBoxItem Content="Side by side" Tag="side"/>
+                    <ComboBoxItem Content="Stacked" Tag="stacked"/>
+                </ComboBox>
+
+                <!--
+                    Keep toolbar telemetry deliberately compact so portrait
+                    layouts do not lose half the status line.
+                -->
+
+                <TextBlock
+                    x:Name="SimulationStatusTextBlock"
+                    Grid.Column="11"
+                    Margin="14,0,4,0"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    Text="Simulation not loaded."
+                    FontFamily="Menlo,Consolas,monospace"
+                    FontSize="12"
+                    Opacity="0.8"/>
+            </Grid>
+        </Border>
+
+        <!-- Workspace -->
 
         <Grid
-            Grid.Row="1"
-            ColumnDefinitions="3*,2*"
+            x:Name="WorkspaceGrid"
+            Grid.Row="2"
             Margin="12"
+            ColumnDefinitions="3*,2*"
+            RowDefinitions="*"
             ColumnSpacing="12">
 
-            <!-- Interactive 3D brain -->
+            <!-- Brain viewport -->
 
             <Border
+                x:Name="BrainPanel"
                 Grid.Column="0"
+                Grid.Row="0"
                 Background="#11161D"
                 BorderBrush="#30363D"
                 BorderThickness="1"
@@ -82,9 +217,9 @@
                         <TextBlock
                             Grid.Column="1"
                             HorizontalAlignment="Right"
-                            VerticalAlignment="Center"
                             Text="drag: rotate   right-drag: pan   scroll: zoom   click: inspect"
-                            Opacity="0.55"/>
+                            FontSize="12"
+                            Opacity="0.50"/>
                     </Grid>
 
                     <local:BrainView
@@ -94,293 +229,497 @@
                 </Grid>
             </Border>
 
-            <!-- Right-side diagnostics -->
+            <!-- Diagnostics -->
 
-            <Grid
+            <Border
+                x:Name="DiagnosticsPanel"
                 Grid.Column="1"
-                RowDefinitions="2*,Auto,Auto,2*,Auto"
-                RowSpacing="10">
+                Grid.Row="0"
+                Background="#11161D"
+                BorderBrush="#30363D"
+                BorderThickness="1"
+                CornerRadius="8"
+                ClipToBounds="True">
 
-                <!-- Visual field -->
+                <TabControl>
 
-                <Border
-                    Grid.Row="0"
-                    Background="#11161D"
-                    BorderBrush="#30363D"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    ClipToBounds="True">
+                    <!-- Vision -->
 
-                    <Grid
-                        RowDefinitions="Auto,*">
+                    <TabItem Header="Vision">
 
                         <Grid
-                            Margin="12"
-                            ColumnDefinitions="Auto,*">
+                            Margin="10"
+                            RowDefinitions="Auto,*,Auto"
+                            RowSpacing="10">
 
-                            <TextBlock
-                                Text="Visual field"
-                                FontSize="18"
-                                FontWeight="SemiBold"/>
+                            <StackPanel
+                                Grid.Row="0"
+                                Orientation="Horizontal"
+                                Spacing="8">
 
-                            <TextBlock
-                                Grid.Column="1"
-                                HorizontalAlignment="Right"
-                                VerticalAlignment="Center"
-                                Text="click a column to move stimulus"
-                                Opacity="0.55"/>
-                        </Grid>
+                                <TextBlock
+                                    Text="Direction"
+                                    VerticalAlignment="Center"
+                                    Opacity="0.65"/>
 
-                        <local:VisualFieldView
-                            x:Name="VisualFieldViewControl"
-                            Grid.Row="1"
-                            Margin="8"/>
-                    </Grid>
-                </Border>
+                                <ComboBox
+                                    x:Name="MotionDirectionComboBox"
+                                    Width="120"
+                                    SelectedIndex="0"
+                                    SelectionChanged="MotionControl_OnSelectionChanged">
 
-                <!-- Current stimulus -->
+                                    <ComboBoxItem
+                                        Content="P increasing"
+                                        Tag="1"/>
 
-                <Border
-                    Grid.Row="1"
-                    Background="#161B22"
-                    BorderBrush="#30363D"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    Padding="10">
+                                    <ComboBoxItem
+                                        Content="P decreasing"
+                                        Tag="-1"/>
+                                </ComboBox>
 
-                    <TextBlock
-                        x:Name="StimulusTextBlock"
-                        Text="No visual stimulus selected."
-                        TextWrapping="Wrap"/>
-                </Border>
+                                <TextBlock
+                                    Text="Speed"
+                                    VerticalAlignment="Center"
+                                    Opacity="0.65"/>
 
-                <!-- Selected neuron inspector -->
+                                <ComboBox
+                                    x:Name="MotionSpeedComboBox"
+                                    Width="90"
+                                    SelectedIndex="1">
 
-                <Border
-                    Grid.Row="2"
-                    Background="#11161D"
-                    BorderBrush="#30363D"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    Padding="10">
+                                    <ComboBoxItem Content="0.25" Tag="0.25"/>
+                                    <ComboBoxItem Content="0.50" Tag="0.5"/>
+                                    <ComboBoxItem Content="1.00" Tag="1"/>
+                                    <ComboBoxItem Content="2.00" Tag="2"/>
+                                </ComboBox>
+                            </StackPanel>
 
-                    <Grid
-                        RowDefinitions="Auto,Auto">
+                            <Border
+                                Grid.Row="1"
+                                Background="#0D1117"
+                                BorderBrush="#30363D"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                ClipToBounds="True">
 
-                        <TextBlock
-                            Text="Selected neuron"
-                            FontSize="16"
-                            FontWeight="SemiBold"/>
-
-                        <TextBlock
-                            x:Name="SelectedNeuronTextBlock"
-                            Grid.Row="1"
-                            Margin="0,6,0,0"
-                            Text="Click a neuron in the brain view."
-                            TextWrapping="Wrap"/>
-                    </Grid>
-                </Border>
-
-                <!--
-                    Strongest current activity.
-
-                    This is now a real selectable list rather than a TextBox
-                    performing cosplay as a data table. Double-clicking a row
-                    navigates the 3D brain directly to that neuron.
-                -->
-
-                <Border
-                    Grid.Row="3"
-                    Background="#11161D"
-                    BorderBrush="#30363D"
-                    BorderThickness="1"
-                    CornerRadius="8">
-
-                    <Grid
-                        RowDefinitions="Auto,Auto,*">
-
-                        <Grid
-                            Margin="12"
-                            ColumnDefinitions="Auto,*">
-
-                            <TextBlock
-                                Text="Current neural activity"
-                                FontSize="18"
-                                FontWeight="SemiBold"/>
-
-                            <TextBlock
-                                Grid.Column="1"
-                                HorizontalAlignment="Right"
-                                VerticalAlignment="Center"
-                                Text="double-click to locate"
-                                Opacity="0.55"/>
-                        </Grid>
-
-                        <Grid
-                            Grid.Row="1"
-                            Margin="12,0,12,4"
-                            ColumnDefinitions="75,75,*">
-
-                            <TextBlock
-                                Grid.Column="0"
-                                Text="input"
-                                FontWeight="SemiBold"
-                                Opacity="0.7"/>
-
-                            <TextBlock
-                                Grid.Column="1"
-                                Text="V"
-                                FontWeight="SemiBold"
-                                Opacity="0.7"/>
-
-                            <TextBlock
-                                Grid.Column="2"
-                                Text="neuron / type"
-                                FontWeight="SemiBold"
-                                Opacity="0.7"/>
-                        </Grid>
-
-                        <ListBox
-                            x:Name="ActivityListBox"
-                            Grid.Row="2"
-                            Margin="8,0,8,8"
-                            Background="#0D1117"
-                            BorderThickness="0"
-                            DoubleTapped="ActivityListBox_OnDoubleTapped">
-
-                            <ListBox.ItemTemplate>
-                                <DataTemplate
-                                    x:DataType="local:ActiveNeuronListItem">
+                                <Grid
+                                    RowDefinitions="Auto,*">
 
                                     <Grid
-                                        ColumnDefinitions="75,75,*"
-                                        Margin="4,2">
+                                        Margin="10"
+                                        ColumnDefinitions="Auto,*">
 
                                         <TextBlock
-                                            Grid.Column="0"
-                                            Text="{Binding InputText}"/>
+                                            Text="Visual field"
+                                            FontSize="17"
+                                            FontWeight="SemiBold"/>
 
                                         <TextBlock
                                             Grid.Column="1"
-                                            Text="{Binding MembranePotentialText}"/>
+                                            HorizontalAlignment="Right"
+                                            Text="click to position stimulus"
+                                            FontSize="12"
+                                            Opacity="0.50"/>
+                                    </Grid>
+
+                                    <local:VisualFieldView
+                                        x:Name="VisualFieldViewControl"
+                                        Grid.Row="1"
+                                        Margin="6"/>
+                                </Grid>
+                            </Border>
+
+                            <Border
+                                Grid.Row="2"
+                                Background="#161B22"
+                                BorderBrush="#30363D"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="10">
+
+                                <TextBlock
+                                    x:Name="StimulusTextBlock"
+                                    Text="No visual stimulus selected."
+                                    TextWrapping="Wrap"/>
+                            </Border>
+                        </Grid>
+                    </TabItem>
+
+                    <!-- Individual activity -->
+
+                    <TabItem Header="Activity">
+
+                        <Grid
+                            Margin="10"
+                            RowDefinitions="Auto,*"
+                            RowSpacing="10">
+
+                            <Border
+                                Grid.Row="0"
+                                Background="#161B22"
+                                BorderBrush="#30363D"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="10">
+
+                                <Grid
+                                    RowDefinitions="Auto,Auto">
+
+                                    <TextBlock
+                                        Text="Selected neuron"
+                                        FontSize="16"
+                                        FontWeight="SemiBold"/>
+
+                                    <TextBlock
+                                        x:Name="SelectedNeuronTextBlock"
+                                        Grid.Row="1"
+                                        Margin="0,6,0,0"
+                                        Text="Click a neuron in the brain view."
+                                        TextWrapping="Wrap"/>
+                                </Grid>
+                            </Border>
+
+                            <Border
+                                Grid.Row="1"
+                                Background="#0D1117"
+                                BorderBrush="#30363D"
+                                BorderThickness="1"
+                                CornerRadius="6">
+
+                                <Grid
+                                    RowDefinitions="Auto,Auto,*">
+
+                                    <Grid
+                                        Margin="10"
+                                        ColumnDefinitions="Auto,*">
 
                                         <TextBlock
-                                            Grid.Column="2"
-                                            Text="{Binding IdentityText}"
-                                            TextTrimming="CharacterEllipsis"/>
+                                            Text="Current neural activity"
+                                            FontSize="17"
+                                            FontWeight="SemiBold"/>
+
+                                        <TextBlock
+                                            Grid.Column="1"
+                                            HorizontalAlignment="Right"
+                                            Text="double-click to locate"
+                                            FontSize="12"
+                                            Opacity="0.50"/>
                                     </Grid>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
-                    </Grid>
-                </Border>
 
-                <!-- Descending output -->
+                                    <Grid
+                                        Grid.Row="1"
+                                        Margin="10,0,10,4"
+                                        ColumnDefinitions="75,75,*">
 
-                <Border
-                    Grid.Row="4"
-                    Background="#11161D"
-                    BorderBrush="#30363D"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    Padding="10">
+                                        <TextBlock Grid.Column="0" Text="input"/>
+                                        <TextBlock Grid.Column="1" Text="V"/>
+                                        <TextBlock Grid.Column="2" Text="neuron / type"/>
+                                    </Grid>
 
-                    <Grid
-                        RowDefinitions="Auto,Auto">
+                                    <ListBox
+                                        x:Name="ActivityListBox"
+                                        Grid.Row="2"
+                                        Margin="6"
+                                        Background="#0D1117"
+                                        BorderThickness="0"
+                                        DoubleTapped="ActivityListBox_OnDoubleTapped">
 
-                        <TextBlock
-                            Text="Descending output"
-                            FontSize="16"
-                            FontWeight="SemiBold"/>
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate
+                                                x:DataType="local:ActiveNeuronListItem">
 
-                        <TextBlock
-                            x:Name="BehaviourTextBlock"
-                            Grid.Row="1"
-                            Margin="0,6,0,0"
-                            Text="Not loaded."
-                            TextWrapping="Wrap"
-                            Opacity="0.8"/>
-                    </Grid>
-                </Border>
-            </Grid>
+                                                <Grid
+                                                    ColumnDefinitions="75,75,*"
+                                                    Margin="4,2">
+
+                                                    <TextBlock
+                                                        Grid.Column="0"
+                                                        Text="{Binding InputText}"/>
+
+                                                    <TextBlock
+                                                        Grid.Column="1"
+                                                        Text="{Binding MembranePotentialText}"/>
+
+                                                    <TextBlock
+                                                        Grid.Column="2"
+                                                        Text="{Binding IdentityText}"
+                                                        TextTrimming="CharacterEllipsis"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </TabItem>
+
+                    <!-- Visual pathway telemetry -->
+
+                    <TabItem Header="Pathways">
+
+                        <Grid
+                            Margin="10"
+                            RowDefinitions="Auto,Auto,*">
+
+                            <TextBlock
+                                Grid.Row="0"
+                                Margin="2,2,2,10"
+                                Text="Aggregate activity through the canonical ON/OFF motion pathway."
+                                TextWrapping="Wrap"
+                                Opacity="0.70"/>
+
+                            <Grid
+                                Grid.Row="1"
+                                Margin="6,0,6,4"
+                                ColumnDefinitions="95,70,65,65,55,85,*">
+
+                                <TextBlock Grid.Column="0" Text="stage"/>
+                                <TextBlock Grid.Column="1" Text="type"/>
+                                <TextBlock Grid.Column="2" Text="total"/>
+                                <TextBlock Grid.Column="3" Text="active"/>
+                                <TextBlock Grid.Column="4" Text="fired"/>
+                                <TextBlock Grid.Column="5" Text="max |in|"/>
+                                <TextBlock Grid.Column="6" Text="V range"/>
+                            </Grid>
+
+                            <ListBox
+                                x:Name="PathwayListBox"
+                                Grid.Row="2"
+                                Background="#0D1117"
+                                BorderThickness="0">
+
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate
+                                        x:DataType="local:VisualPathwayListItem">
+
+                                        <Grid
+                                            ColumnDefinitions="95,70,65,65,55,85,*"
+                                            Margin="6,3">
+
+                                            <TextBlock
+                                                Grid.Column="0"
+                                                Text="{Binding Stage}"
+                                                Opacity="0.65"/>
+
+                                            <TextBlock
+                                                Grid.Column="1"
+                                                Text="{Binding Type}"
+                                                FontWeight="SemiBold"/>
+
+                                            <TextBlock
+                                                Grid.Column="2"
+                                                Text="{Binding TotalText}"/>
+
+                                            <TextBlock
+                                                Grid.Column="3"
+                                                Text="{Binding ActiveText}"/>
+
+                                            <TextBlock
+                                                Grid.Column="4"
+                                                Text="{Binding FiredText}"/>
+
+                                            <TextBlock
+                                                Grid.Column="5"
+                                                Text="{Binding MaximumInputText}"/>
+
+                                            <TextBlock
+                                                Grid.Column="6"
+                                                Text="{Binding VoltageRangeText}"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
+                    </TabItem>
+
+                    <!-- Motion experiment -->
+
+                    <TabItem Header="Motion">
+
+                        <Grid
+                            Margin="10"
+                            RowDefinitions="Auto,Auto,Auto,*"
+                            RowSpacing="10">
+
+                            <WrapPanel
+                                Grid.Row="0"
+                                Orientation="Horizontal">
+
+                                <TextBlock
+                                    Margin="0,0,8,0"
+                                    VerticalAlignment="Center"
+                                    Text="Edge"
+                                    Opacity="0.65"/>
+
+                                <ComboBox
+                                    x:Name="MotionPolarityComboBox"
+                                    Width="105"
+                                    Margin="0,0,12,0"
+                                    SelectedIndex="0"
+                                    SelectionChanged="MotionPolarityComboBox_OnSelectionChanged">
+
+                                    <ComboBoxItem
+                                        Content="ON edge"
+                                        Tag="on"/>
+
+                                    <ComboBoxItem
+                                        Content="OFF edge"
+                                        Tag="off"/>
+                                </ComboBox>
+
+                                <TextBlock
+                                    Margin="0,0,8,0"
+                                    VerticalAlignment="Center"
+                                    Text="Sweep speed"
+                                    Opacity="0.65"/>
+
+                                <ComboBox
+                                    x:Name="MotionSweepSpeedComboBox"
+                                    Width="90"
+                                    Margin="0,0,12,0"
+                                    SelectedIndex="1">
+
+                                    <ComboBoxItem Content="0.25" Tag="0.25"/>
+                                    <ComboBoxItem Content="0.50" Tag="0.5"/>
+                                    <ComboBoxItem Content="1.00" Tag="1"/>
+                                    <ComboBoxItem Content="2.00" Tag="2"/>
+                                </ComboBox>
+
+                                <Button
+                                    x:Name="SweepIncreasingButton"
+                                    Margin="0,0,6,0"
+                                    Content="Sweep P+"
+                                    IsEnabled="False"
+                                    Click="SweepIncreasingButton_OnClick"/>
+
+                                <Button
+                                    x:Name="SweepDecreasingButton"
+                                    Margin="0,0,6,0"
+                                    Content="Sweep P-"
+                                    IsEnabled="False"
+                                    Click="SweepDecreasingButton_OnClick"/>
+
+                                <Button
+                                    x:Name="ClearMotionResultsButton"
+                                    Content="Clear"
+                                    IsEnabled="False"
+                                    Click="ClearMotionResultsButton_OnClick"/>
+                            </WrapPanel>
+
+                            <TextBlock
+                                x:Name="MotionExperimentTextBlock"
+                                Grid.Row="1"
+                                Text="Run both directional sweeps to establish a baseline."
+                                TextWrapping="Wrap"
+                                Opacity="0.72"/>
+
+                            <Grid
+                                Grid.Row="2"
+                                Margin="6,0,6,4"
+                                ColumnDefinitions="65,85,100,100,80,*">
+
+                                <TextBlock Grid.Column="0" Text="type"/>
+                                <TextBlock Grid.Column="1" Text="now |ΔV|"/>
+                                <TextBlock Grid.Column="2" Text="P+ integral"/>
+                                <TextBlock Grid.Column="3" Text="P- integral"/>
+                                <TextBlock Grid.Column="4" Text="DSI"/>
+                                <TextBlock Grid.Column="5" Text="spikes + / -"/>
+                            </Grid>
+
+                            <ListBox
+                                x:Name="MotionSweepListBox"
+                                Grid.Row="3"
+                                Background="#0D1117"
+                                BorderThickness="0">
+
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate
+                                        x:DataType="local:MotionSweepListItem">
+
+                                        <Grid
+                                            ColumnDefinitions="65,85,100,100,80,*"
+                                            Margin="6,5">
+
+                                            <TextBlock
+                                                Grid.Column="0"
+                                                Text="{Binding Type}"
+                                                FontWeight="SemiBold"/>
+
+                                            <TextBlock
+                                                Grid.Column="1"
+                                                Text="{Binding CurrentText}"/>
+
+                                            <TextBlock
+                                                Grid.Column="2"
+                                                Text="{Binding IncreasingText}"/>
+
+                                            <TextBlock
+                                                Grid.Column="3"
+                                                Text="{Binding DecreasingText}"/>
+
+                                            <TextBlock
+                                                Grid.Column="4"
+                                                Text="{Binding DirectionSelectivityText}"/>
+
+                                            <TextBlock
+                                                Grid.Column="5"
+                                                Text="{Binding SpikesText}"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
+                    </TabItem>
+
+                    <!-- Behaviour -->
+
+                    <TabItem Header="Behaviour">
+
+                        <Grid
+                            Margin="12"
+                            RowDefinitions="Auto,Auto,*"
+                            RowSpacing="10">
+
+                            <TextBlock
+                                Text="Descending output"
+                                FontSize="18"
+                                FontWeight="SemiBold"/>
+
+                            <TextBlock
+                                x:Name="BehaviourTextBlock"
+                                Grid.Row="1"
+                                Text="Not loaded."
+                                TextWrapping="Wrap"/>
+
+                            <Border
+                                Grid.Row="2"
+                                Background="#0D1117"
+                                BorderBrush="#30363D"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="12">
+
+                                <StackPanel
+                                    VerticalAlignment="Center"
+                                    HorizontalAlignment="Center"
+                                    Spacing="6">
+
+                                    <TextBlock
+                                        Text="Movement view"
+                                        FontSize="17"
+                                        FontWeight="SemiBold"
+                                        HorizontalAlignment="Center"/>
+
+                                    <TextBlock
+                                        Text="Reserved for BANC/VNC-derived movement output."
+                                        Opacity="0.55"
+                                        TextAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </TabItem>
+                </TabControl>
+            </Border>
         </Grid>
-
-        <!-- Simulation controls -->
-
-        <Border
-            Grid.Row="2"
-            Background="#161B22"
-            Padding="12">
-
-            <Grid
-                ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*"
-                ColumnSpacing="9">
-
-                <Button
-                    x:Name="FlashButton"
-                    Grid.Column="0"
-                    Content="Flash selected column"
-                    IsEnabled="False"
-                    Click="FlashButton_OnClick"/>
-
-                <Button
-                    x:Name="RunPauseButton"
-                    Grid.Column="1"
-                    Content="Run"
-                    IsEnabled="False"
-                    Click="RunPauseButton_OnClick"/>
-
-                <Button
-                    x:Name="StepButton"
-                    Grid.Column="2"
-                    Content="Step 1 ms"
-                    IsEnabled="False"
-                    Click="StepButton_OnClick"/>
-
-                <Button
-                    x:Name="AdvanceButton"
-                    Grid.Column="3"
-                    Content="Advance 10 ms"
-                    IsEnabled="False"
-                    Click="AdvanceButton_OnClick"/>
-
-                <Button
-                    x:Name="ResetViewButton"
-                    Grid.Column="4"
-                    Content="Reset view"
-                    IsEnabled="False"
-                    Click="ResetViewButton_OnClick"/>
-
-                <ComboBox
-                    x:Name="RunSpeedComboBox"
-                    Grid.Column="5"
-                    Width="125"
-                    SelectedIndex="0">
-
-                    <ComboBoxItem
-                        Content="1 ms / tick"
-                        Tag="1"/>
-
-                    <ComboBoxItem
-                        Content="2 ms / tick"
-                        Tag="2"/>
-
-                    <ComboBoxItem
-                        Content="5 ms / tick"
-                        Tag="5"/>
-
-                    <ComboBoxItem
-                        Content="10 ms / tick"
-                        Tag="10"/>
-                </ComboBox>
-
-                <TextBlock
-                    x:Name="SimulationStatusTextBlock"
-                    Grid.Column="6"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Center"
-                    Text="Simulation not loaded."/>
-            </Grid>
-        </Border>
     </Grid>
 </Window>

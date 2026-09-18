@@ -2,6 +2,7 @@ using FlyDoom.Connectome.Model;
 using FlyDoom.Neural.Simulation;
 using FlyDoom.Vision.Model;
 using FlyDoom.Vision.Stimulation;
+using FlyDoom.Vision.Transmission;
 
 namespace FlyDoom.Runtime;
 
@@ -10,67 +11,55 @@ namespace FlyDoom.Runtime;
 /// FlyDoom runtime instance.
 /// </summary>
 /// <remarks>
-/// This class is deliberately UI-independent. Console applications, graphical
-/// front ends, training systems and future DOOM integration should all operate
-/// on the same runtime model rather than assembling their own copies of the
-/// fly.
+/// This class is UI-independent. Console applications, graphical front ends,
+/// training systems and future DOOM integration should operate on this shared
+/// runtime rather than assembling independent copies of the simulated fly.
 /// </remarks>
 public sealed class FlyDoomRuntime
 {
-    /// <summary>
-    /// Gets the mapping between FlyWire root IDs and compact simulation indices.
-    /// </summary>
     public NeuronIndexMap NeuronIndexMap { get; }
 
-    /// <summary>
-    /// Gets compact biological metadata for every neuron.
-    /// </summary>
     public CompactNeuronTable NeuronTable { get; }
 
-    /// <summary>
-    /// Gets names and classification metadata for every neuron.
-    /// </summary>
     public CompactNeuronIdentityTable IdentityTable { get; }
 
-    /// <summary>
-    /// Gets representative spatial positions for every neuron.
-    /// </summary>
     public CompactNeuronPositionTable PositionTable { get; }
 
-    /// <summary>
-    /// Gets morphological measurements for neurons where available.
-    /// </summary>
     public CompactNeuronMorphologyTable MorphologyTable { get; }
 
-    /// <summary>
-    /// Gets the compact FAFB structural connectome.
-    /// </summary>
     public CompactConnectome Connectome { get; }
 
-    /// <summary>
-    /// Gets visual-system annotation aligned with neuron indices.
-    /// </summary>
     public VisualNeuronCatalog VisualCatalog { get; }
 
-    /// <summary>
-    /// Gets the spatial visual-column map for both optic lobes.
-    /// </summary>
     public VisualColumnMap VisualColumns { get; }
 
-    /// <summary>
-    /// Gets mutable neural state for the current simulation.
-    /// </summary>
+    public R1R6CartridgeMap R1R6CartridgeMap { get; }
+
     public NeuronStateTable NeuralState { get; }
 
-    /// <summary>
-    /// Gets the whole-brain neural simulator.
-    /// </summary>
     public NeuralSimulation NeuralSimulation { get; }
 
+    public GradedVisualTransmissionModel
+        GradedVisualTransmission
+    {
+        get;
+    }
+
+    public ColumnPhotoreceptorStimulator
+        PhotoreceptorStimulator
+    {
+        get;
+    }
+
     /// <summary>
-    /// Gets the current graded photoreceptor stimulus model.
+    /// Gets statistics from the most recent graded-transmission pass.
     /// </summary>
-    public ColumnPhotoreceptorStimulator PhotoreceptorStimulator { get; }
+    public GradedTransmissionStatistics
+        LastGradedTransmission
+    {
+        get;
+        private set;
+    }
 
     internal FlyDoomRuntime(
         NeuronIndexMap neuronIndexMap,
@@ -81,8 +70,10 @@ public sealed class FlyDoomRuntime
         CompactConnectome connectome,
         VisualNeuronCatalog visualCatalog,
         VisualColumnMap visualColumns,
+        R1R6CartridgeMap r1R6CartridgeMap,
         NeuronStateTable neuralState,
         NeuralSimulation neuralSimulation,
+        GradedVisualTransmissionModel gradedVisualTransmission,
         ColumnPhotoreceptorStimulator photoreceptorStimulator)
     {
         NeuronIndexMap =
@@ -109,13 +100,54 @@ public sealed class FlyDoomRuntime
         VisualColumns =
             visualColumns;
 
+        R1R6CartridgeMap =
+            r1R6CartridgeMap;
+
         NeuralState =
             neuralState;
 
         NeuralSimulation =
             neuralSimulation;
 
+        GradedVisualTransmission =
+            gradedVisualTransmission;
+
         PhotoreceptorStimulator =
             photoreceptorStimulator;
+    }
+
+    /// <summary>
+    /// Resets transient electrical state while preserving the loaded brain and
+    /// any future long-term learned state.
+    /// </summary>
+    /// <remarks>
+    /// This is intended for reproducible experiments. Two visual sweeps can
+    /// begin from the exact same neural state without rebuilding the connectome
+    /// or discarding future plasticity.
+    /// </remarks>
+    public void ResetDynamicState()
+    {
+        NeuralSimulation.Reset();
+
+        LastGradedTransmission =
+            default;
+    }
+
+    /// <summary>
+    /// Advances the complete hybrid neural simulation.
+    /// </summary>
+    public NeuralStepStatistics Step(
+        float timestepMs)
+    {
+        var neuralStatistics =
+            NeuralSimulation.Step(
+                timestepMs);
+
+        LastGradedTransmission =
+            GradedVisualTransmission.Propagate(
+                NeuralState,
+                timestepMs);
+
+        return neuralStatistics;
     }
 }

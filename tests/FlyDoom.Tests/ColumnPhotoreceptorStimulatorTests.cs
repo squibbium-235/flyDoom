@@ -11,15 +11,27 @@ namespace FlyDoom.Tests;
 public sealed class ColumnPhotoreceptorStimulatorTests
 {
     [Fact]
-    public void Flash_AppliesInhibitoryInputFromR7AndR8()
+    public void Flash_UsesR1R6R7AndR8Photoreceptors()
     {
         var neuronMap =
             NeuronIndexMap.Create(
             [
                 100,
                 200,
-                300
+                300,
+                400,
+                500,
+                600
             ]);
+
+        //
+        // 0 = R1-R6
+        // 1 = R7
+        // 2 = R8
+        // 3 = L1
+        // 4 = L2
+        // 5 = another postsynaptic target
+        //
 
         var catalog =
             VisualNeuronCatalogBuilder.Build(
@@ -28,30 +40,64 @@ public sealed class ColumnPhotoreceptorStimulatorTests
                     new FafbVisualNeuronTypeRecord
                     {
                         RootId = 100,
-                        Type = "R7"
+                        Type = "R1-6"
                     },
 
                     new FafbVisualNeuronTypeRecord
                     {
                         RootId = 200,
+                        Type = "R7"
+                    },
+
+                    new FafbVisualNeuronTypeRecord
+                    {
+                        RootId = 300,
                         Type = "R8"
+                    },
+
+                    new FafbVisualNeuronTypeRecord
+                    {
+                        RootId = 400,
+                        Type = "L1"
+                    },
+
+                    new FafbVisualNeuronTypeRecord
+                    {
+                        RootId = 500,
+                        Type = "L2"
                     }
                 ],
                 [
                     new FafbColumnAssignmentRecord
                     {
-                        RootId = 100,
+                        RootId = 200,
                         Hemisphere = "right",
                         Type = "R7",
-                        ColumnId = "1"
+                        ColumnId = "42"
                     },
 
                     new FafbColumnAssignmentRecord
                     {
-                        RootId = 200,
+                        RootId = 300,
                         Hemisphere = "right",
                         Type = "R8",
-                        ColumnId = "1"
+                        ColumnId = "42"
+                    },
+
+                    new FafbColumnAssignmentRecord
+                    {
+                        RootId = 400,
+                        Hemisphere = "right",
+                        Type = "L1",
+                        ColumnId = "42"
+                    },
+
+                    new FafbColumnAssignmentRecord
+                    {
+                        RootId = 500,
+                        Hemisphere = "right",
+                        Type = "L2",
+                        ColumnId = "42"
                     }
                 ]);
 
@@ -59,44 +105,66 @@ public sealed class ColumnPhotoreceptorStimulatorTests
             VisualColumnMapBuilder.Build(
                 catalog);
 
-        //
-        // Both photoreceptors converge on neuron 2 with five anatomical
-        // synapses each. Each therefore represents half of the target's
-        // ten incoming synapses.
-        //
+        var column =
+            columns.Columns.Single(
+                column =>
+                    column.Hemisphere == "right" &&
+                    column.ColumnId == "42");
+
         var connectome =
             new CompactConnectome(
                 outgoingOffsets:
                 [
                     0,
-                    1,
                     2,
-                    2
+                    3,
+                    4,
+                    4,
+                    4,
+                    4
                 ],
                 postsynapticIndices:
                 [
-                    2,
-                    2
+                    3,
+                    4,
+                    5,
+                    5
                 ],
                 synapseCounts:
                 [
                     5,
-                    5
+                    5,
+                    4,
+                    6
                 ],
                 neuropilIndices:
                 [
                     0,
-                    0
+                    0,
+                    1,
+                    1
                 ],
                 neurotransmitterTypes:
                 [
+                    NeurotransmitterType.Acetylcholine,
+                    NeurotransmitterType.Acetylcholine,
                     NeurotransmitterType.Acetylcholine,
                     NeurotransmitterType.Acetylcholine
                 ],
                 neuropilNames:
                 [
-                    "TEST"
+                    "LA_R",
+                    "ME_R"
                 ]);
+
+        var r1R6Map =
+            R1R6CartridgeMapBuilder.Build(
+                catalog,
+                connectome);
+
+        Assert.Equal(
+            1,
+            r1R6Map.MappedPhotoreceptorCount);
 
         var inputs =
             PostsynapticInputTable.Build(
@@ -104,7 +172,7 @@ public sealed class ColumnPhotoreceptorStimulatorTests
 
         var state =
             new NeuronStateTable(
-                3,
+                6,
                 -60f);
 
         var stimulator =
@@ -112,29 +180,38 @@ public sealed class ColumnPhotoreceptorStimulatorTests
                 catalog,
                 connectome,
                 inputs,
+                r1R6Map,
                 fullHistamineInputAmplitudeMv: 40f);
 
         var result =
             stimulator.ApplyColumnFlash(
-                columns.GetColumn(0),
+                column,
                 state,
                 intensity: 1f);
 
         Assert.Equal(
-            2,
+            3,
             result.PhotoreceptorCount);
 
         Assert.Equal(
-            2,
+            4,
             result.AppliedConnectionCount);
 
         Assert.Equal(
-            1,
+            3,
             result.UniqueTargetCount);
 
         Assert.Equal(
             -40f,
-            state.GetSynapticInputMv(2));
+            state.GetSynapticInputMv(3));
+
+        Assert.Equal(
+            -40f,
+            state.GetSynapticInputMv(4));
+
+        Assert.Equal(
+            -40f,
+            state.GetSynapticInputMv(5));
 
         Assert.Equal(
             -40f,
@@ -201,7 +278,7 @@ public sealed class ColumnPhotoreceptorStimulatorTests
                 ],
                 neuropilNames:
                 [
-                    "TEST"
+                    "ME_R"
                 ]);
 
         var inputs =
@@ -212,6 +289,10 @@ public sealed class ColumnPhotoreceptorStimulatorTests
             new NeuronStateTable(
                 2,
                 -60f);
+
+        //
+        // Use the backwards-compatible constructor with no R1-R6 map.
+        //
 
         var stimulator =
             new ColumnPhotoreceptorStimulator(
@@ -243,7 +324,7 @@ public sealed class ColumnPhotoreceptorStimulatorTests
     [InlineData(-0.1f)]
     [InlineData(1.1f)]
     public void Flash_RejectsInvalidIntensity(
-    float intensity)
+        float intensity)
     {
         var neuronMap =
             NeuronIndexMap.Create(
@@ -256,19 +337,19 @@ public sealed class ColumnPhotoreceptorStimulatorTests
                 neuronMap,
                 [
                     new FafbVisualNeuronTypeRecord
-                {
-                    RootId = 100,
-                    Type = "R7"
-                }
+                    {
+                        RootId = 100,
+                        Type = "R7"
+                    }
                 ],
                 [
                     new FafbColumnAssignmentRecord
-                {
-                    RootId = 100,
-                    Hemisphere = "right",
-                    Type = "R7",
-                    ColumnId = "1"
-                }
+                    {
+                        RootId = 100,
+                        Hemisphere = "right",
+                        Type = "R7",
+                        ColumnId = "1"
+                    }
                 ]);
 
         var columns =
@@ -280,7 +361,7 @@ public sealed class ColumnPhotoreceptorStimulatorTests
                 outgoingOffsets:
                 [
                     0,
-                0
+                    0
                 ],
                 postsynapticIndices:
                 [],

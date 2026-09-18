@@ -10,17 +10,29 @@ namespace FlyDoom.Gui;
 /// Draws the FAFB brain as an interactive three-dimensional neuron point cloud.
 /// </summary>
 /// <remarks>
-/// FAFB provides representative X/Y/Z coordinates rather than full skeletons
-/// in the currently loaded coordinate dataset. Each neuron is therefore shown
-/// at the mean of its available representative positions.
+/// The current view represents each neuron using the mean of its available
+/// FAFB representative coordinates.
 ///
-/// The three-dimensional coordinates are projected onto the two-dimensional
-/// Avalonia drawing surface using a lightweight perspective transform.
+/// Rendering uses a lightweight perspective projection and automatically
+/// reduces anatomical drawing detail while the camera is moving. Neural
+/// activity is always rendered at full detail.
 /// </remarks>
 public sealed class BrainView : Control
 {
     private const int ActivityBrushLevels =
         16;
+
+    private const int InteractionBackgroundStride =
+        4;
+
+    private const double MinimumZoom =
+        0.25;
+
+    private const double MaximumZoom =
+        8.0;
+
+    private const double MinimumVisibleBrainPixels =
+        80.0;
 
     private static readonly IBrush[] InactiveBrushes =
         CreateInactiveBrushes();
@@ -64,13 +76,25 @@ public sealed class BrainView : Control
     private Point[] _projectedPoints =
         [];
 
+    private double[] _projectedDepths =
+        [];
+
     private bool[] _projectedVisible =
         [];
 
     //
-    // Picking and programmatic focusing happen frequently once the activity
-    // viewer is interactive. Keep a direct neuron -> point lookup instead of
-    // scanning all 139,255 neurons every time somebody clicks something.
+    // Only neural activity changes when the simulation advances.
+    //
+    // Keep a cache of active point indices so moving the camera does not
+    // require scanning every neuron's state again.
+    //
+
+    private readonly List<int> _activePointIndices =
+        [];
+
+    //
+    // Picking and programmatic focusing need rapid neuron -> rendered point
+    // lookup rather than scanning the entire population.
     //
 
     private readonly Dictionary<int, int> _pointIndexByNeuron =
@@ -128,6 +152,8 @@ public sealed class BrainView : Control
 
         BuildPointCloud();
 
+        RebuildActivePointCache();
+
         ResetView();
     }
 
@@ -146,12 +172,6 @@ public sealed class BrainView : Control
     /// <summary>
     /// Centres and zooms the camera onto a neuron.
     /// </summary>
-    /// <remarks>
-    /// The existing three-dimensional orientation is preserved so focusing a
-    /// neuron does not unexpectedly rotate the brain. The view is zoomed to
-    /// at least the requested level and then panned so the selected neuron is
-    /// projected into the centre of the drawing surface.
-    /// </remarks>
     public void FocusNeuron(
         int neuronIndex,
         double minimumZoom = 4.5)
@@ -176,13 +196,8 @@ public sealed class BrainView : Control
                 Math.Max(
                     _zoom,
                     minimumZoom),
-                0.25,
-                8.0);
-
-        //
-        // Calculate where the neuron would appear with no panning, then move
-        // the camera by precisely the opposite amount.
-        //
+                MinimumZoom,
+                MaximumZoom);
 
         _panX =
             0;
@@ -193,11 +208,11 @@ public sealed class BrainView : Control
         if (Bounds.Width > 0 &&
             Bounds.Height > 0)
         {
-            var centreX =
+            var viewportCentreX =
                 Bounds.Width /
                 2.0;
 
-            var centreY =
+            var viewportCentreY =
                 Bounds.Height /
                 2.0;
 
@@ -208,27 +223,34 @@ public sealed class BrainView : Control
                 0.92 *
                 _zoom;
 
+            var camera =
+                CreateCameraTransform(
+                    viewportCentreX,
+                    viewportCentreY,
+                    scale);
+
             var projected =
                 ProjectPoint(
                     _points[pointIndex],
-                    centreX,
-                    centreY,
-                    scale);
+                    camera,
+                    clipToViewport: false);
 
             _panX =
-                centreX -
+                viewportCentreX -
                 projected.ScreenPoint.X;
 
             _panY =
-                centreY -
+                viewportCentreY -
                 projected.ScreenPoint.Y;
+
+            ClampPan();
         }
 
         InvalidateVisual();
     }
 
     /// <summary>
-    /// Restores the default camera orientation.
+    /// Restores the default camera orientation, zoom and pan.
     /// </summary>
     public void ResetView()
     {
@@ -251,10 +273,12 @@ public sealed class BrainView : Control
     }
 
     /// <summary>
-    /// Requests that current neural activity be redrawn.
+    /// Refreshes cached neural activity after the simulation advances.
     /// </summary>
     public void RefreshActivity()
     {
+        RebuildActivePointCache();
+
         InvalidateVisual();
     }
 
@@ -263,6 +287,20 @@ public sealed class BrainView : Control
     {
         base.Render(
             context);
+
+        //
+        // Make the entire control participate in hit testing so camera
+        // interaction works even over empty parts of the viewport.
+        //
+
+        context.DrawRectangle(
+            Brushes.Transparent,
+            null,
+            new Rect(
+                0,
+                0,
+                Bounds.Width,
+                Bounds.Height));
 
         if (_runtime is null ||
             _points.Length == 0)
@@ -287,74 +325,99 @@ public sealed class BrainView : Control
             0.92 *
             _zoom;
 
+        var camera =
+            CreateCameraTransform(
+                centreX,
+                centreY,
+                baseScale);
+
         //
-        // Transform the complete anatomical population into screen space.
-        //
-        // Store the projected coordinates so mouse picking uses exactly the
-        // same geometry the user is currently looking at.
+        // Project every neuron so picking and activity positions remain exact.
         //
 
         for (var pointIndex = 0;
              pointIndex < _points.Length;
              pointIndex++)
         {
-            var point =
-                _points[
-                    pointIndex];
-
             var projected =
                 ProjectPoint(
-                    point,
-                    centreX,
-                    centreY,
-                    baseScale);
+                    _points[pointIndex],
+                    camera,
+                    clipToViewport: true);
 
             _projectedPoints[
                 pointIndex] =
                 projected.ScreenPoint;
 
+            _projectedDepths[
+                pointIndex] =
+                projected.Depth;
+
             _projectedVisible[
                 pointIndex] =
                 projected.Visible;
+        }
 
-            if (!projected.Visible)
+        //
+        // Reduce inactive anatomical detail while moving the camera.
+        //
+
+        var backgroundStride =
+            _rotating ||
+            _panning
+                ? InteractionBackgroundStride
+                : 1;
+
+        for (var pointIndex = 0;
+             pointIndex < _points.Length;
+             pointIndex += backgroundStride)
+        {
+            if (!_projectedVisible[
+                    pointIndex])
             {
                 continue;
             }
 
+            var depth =
+                _projectedDepths[
+                    pointIndex];
+
             var depthLevel =
                 Math.Clamp(
                     (int)(
-                        projected.Depth *
+                        depth *
                         (InactiveBrushes.Length - 1)),
                     0,
                     InactiveBrushes.Length - 1);
 
-            var radius =
-                0.45 +
-                projected.Depth *
-                0.35;
+            var screenPoint =
+                _projectedPoints[
+                    pointIndex];
 
-            context.DrawEllipse(
+            var size =
+                0.8 +
+                depth *
+                0.4;
+
+            context.DrawRectangle(
                 InactiveBrushes[
                     depthLevel],
                 null,
-                projected.ScreenPoint,
-                radius,
-                radius);
+                new Rect(
+                    screenPoint.X -
+                    size / 2.0,
+                    screenPoint.Y -
+                    size / 2.0,
+                    size,
+                    size));
         }
 
         //
-        // Activity is rendered separately above the anatomical cloud.
-        //
-        // Absolute synaptic input controls brightness and size. Excitatory
-        // activity is orange, inhibitory activity cyan, and actual spikes
-        // pale yellow.
+        // Neural activity remains full-detail even while moving the camera.
         //
 
-        for (var pointIndex = 0;
-             pointIndex < _points.Length;
-             pointIndex++)
+        foreach (var pointIndex in
+                 _activePointIndices)
         {
             if (!_projectedVisible[
                     pointIndex])
@@ -376,12 +439,6 @@ public sealed class BrainView : Control
                 _runtime.NeuralState
                     .GetSynapticInputMv(
                         neuronIndex);
-
-            if (!fired &&
-                MathF.Abs(input) <= 0.0001f)
-            {
-                continue;
-            }
 
             var screenPoint =
                 _projectedPoints[
@@ -424,8 +481,7 @@ public sealed class BrainView : Control
         }
 
         //
-        // Draw the selected neuron last so it remains visible regardless of
-        // whether it is currently electrically active.
+        // Draw the selected neuron last.
         //
 
         if (_selectedNeuronIndex is not null &&
@@ -445,6 +501,335 @@ public sealed class BrainView : Control
         }
     }
 
+    private CameraTransform CreateCameraTransform(
+        double centreX,
+        double centreY,
+        double scale)
+    {
+        return new CameraTransform(
+            CosYaw:
+                Math.Cos(
+                    _yaw),
+
+            SinYaw:
+                Math.Sin(
+                    _yaw),
+
+            CosPitch:
+                Math.Cos(
+                    _pitch),
+
+            SinPitch:
+                Math.Sin(
+                    _pitch),
+
+            CentreX:
+                centreX,
+
+            CentreY:
+                centreY,
+
+            Scale:
+                scale,
+
+            ViewportWidth:
+                Bounds.Width,
+
+            ViewportHeight:
+                Bounds.Height);
+    }
+
+    private static ProjectedBrainPoint ProjectPoint(
+        BrainPoint point,
+        CameraTransform camera,
+        bool clipToViewport)
+    {
+        var rotatedX =
+            camera.CosYaw *
+            point.X +
+            camera.SinYaw *
+            point.Z;
+
+        var yawZ =
+            -camera.SinYaw *
+            point.X +
+            camera.CosYaw *
+            point.Z;
+
+        var rotatedY =
+            camera.CosPitch *
+            point.Y -
+            camera.SinPitch *
+            yawZ;
+
+        var rotatedZ =
+            camera.SinPitch *
+            point.Y +
+            camera.CosPitch *
+            yawZ;
+
+        const double cameraDistance =
+            2.25;
+
+        var cameraDepth =
+            cameraDistance -
+            rotatedZ;
+
+        if (cameraDepth <= 0.05)
+        {
+            return new ProjectedBrainPoint(
+                default,
+                0,
+                false);
+        }
+
+        var perspective =
+            cameraDistance /
+            cameraDepth;
+
+        var screenPoint =
+            new Point(
+                camera.CentreX +
+                rotatedX *
+                camera.Scale *
+                perspective,
+                camera.CentreY -
+                rotatedY *
+                camera.Scale *
+                perspective);
+
+        var depth =
+            Math.Clamp(
+                rotatedZ +
+                0.5,
+                0,
+                1);
+
+        if (!clipToViewport)
+        {
+            return new ProjectedBrainPoint(
+                screenPoint,
+                depth,
+                true);
+        }
+
+        var visible =
+            screenPoint.X >= -20 &&
+            screenPoint.X <=
+                camera.ViewportWidth + 20 &&
+            screenPoint.Y >= -20 &&
+            screenPoint.Y <=
+                camera.ViewportHeight + 20;
+
+        return new ProjectedBrainPoint(
+            screenPoint,
+            depth,
+            visible);
+    }
+
+    /// <summary>
+    /// Restricts panning so the entire brain cannot leave the viewport.
+    /// </summary>
+    private void ClampPan()
+    {
+        if (_points.Length == 0 ||
+            Bounds.Width <= 0 ||
+            Bounds.Height <= 0)
+        {
+            return;
+        }
+
+        var viewportCentreX =
+            Bounds.Width /
+            2.0;
+
+        var viewportCentreY =
+            Bounds.Height /
+            2.0;
+
+        var scale =
+            Math.Min(
+                Bounds.Width,
+                Bounds.Height) *
+            0.92 *
+            _zoom;
+
+        var camera =
+            CreateCameraTransform(
+                viewportCentreX,
+                viewportCentreY,
+                scale);
+
+        var minimumX =
+            double.PositiveInfinity;
+
+        var maximumX =
+            double.NegativeInfinity;
+
+        var minimumY =
+            double.PositiveInfinity;
+
+        var maximumY =
+            double.NegativeInfinity;
+
+        foreach (var point in
+                 _points)
+        {
+            var projected =
+                ProjectPoint(
+                    point,
+                    camera,
+                    clipToViewport: false);
+
+            if (!projected.Visible)
+            {
+                continue;
+            }
+
+            minimumX =
+                Math.Min(
+                    minimumX,
+                    projected.ScreenPoint.X);
+
+            maximumX =
+                Math.Max(
+                    maximumX,
+                    projected.ScreenPoint.X);
+
+            minimumY =
+                Math.Min(
+                    minimumY,
+                    projected.ScreenPoint.Y);
+
+            maximumY =
+                Math.Max(
+                    maximumY,
+                    projected.ScreenPoint.Y);
+        }
+
+        if (!double.IsFinite(
+                minimumX) ||
+            !double.IsFinite(
+                maximumX) ||
+            !double.IsFinite(
+                minimumY) ||
+            !double.IsFinite(
+                maximumY))
+        {
+            return;
+        }
+
+        var requiredVisibleX =
+            Math.Min(
+                MinimumVisibleBrainPixels,
+                Bounds.Width /
+                3.0);
+
+        var requiredVisibleY =
+            Math.Min(
+                MinimumVisibleBrainPixels,
+                Bounds.Height /
+                3.0);
+
+        var minimumPanX =
+            requiredVisibleX -
+            maximumX;
+
+        var maximumPanX =
+            Bounds.Width -
+            requiredVisibleX -
+            minimumX;
+
+        var minimumPanY =
+            requiredVisibleY -
+            maximumY;
+
+        var maximumPanY =
+            Bounds.Height -
+            requiredVisibleY -
+            minimumY;
+
+        if (minimumPanX >
+            maximumPanX)
+        {
+            var midpoint =
+                (minimumPanX +
+                 maximumPanX) /
+                2.0;
+
+            minimumPanX =
+                midpoint;
+
+            maximumPanX =
+                midpoint;
+        }
+
+        if (minimumPanY >
+            maximumPanY)
+        {
+            var midpoint =
+                (minimumPanY +
+                 maximumPanY) /
+                2.0;
+
+            minimumPanY =
+                midpoint;
+
+            maximumPanY =
+                midpoint;
+        }
+
+        _panX =
+            Math.Clamp(
+                _panX,
+                minimumPanX,
+                maximumPanX);
+
+        _panY =
+            Math.Clamp(
+                _panY,
+                minimumPanY,
+                maximumPanY);
+    }
+
+    private void RebuildActivePointCache()
+    {
+        _activePointIndices.Clear();
+
+        if (_runtime is null)
+        {
+            return;
+        }
+
+        for (var pointIndex = 0;
+             pointIndex < _points.Length;
+             pointIndex++)
+        {
+            var neuronIndex =
+                _points[
+                    pointIndex]
+                    .NeuronIndex;
+
+            var fired =
+                _runtime.NeuralState
+                    .DidFire(
+                        neuronIndex);
+
+            var input =
+                _runtime.NeuralState
+                    .GetSynapticInputMv(
+                        neuronIndex);
+
+            if (fired ||
+                MathF.Abs(input) >
+                0.0001f)
+            {
+                _activePointIndices.Add(
+                    pointIndex);
+            }
+        }
+    }
+
     private void BuildPointCloud()
     {
         if (_runtime is null)
@@ -453,6 +838,9 @@ public sealed class BrainView : Control
                 [];
 
             _projectedPoints =
+                [];
+
+            _projectedDepths =
                 [];
 
             _projectedVisible =
@@ -501,11 +889,6 @@ public sealed class BrainView : Control
                 continue;
             }
 
-            //
-            // Multiple representative coordinates are averaged so the
-            // overview has one stable point per neuron.
-            //
-
             var xSum =
                 0d;
 
@@ -527,9 +910,12 @@ public sealed class BrainView : Control
                         neuronIndex,
                         positionIndex);
 
-                if (!double.IsFinite(position.X) ||
-                    !double.IsFinite(position.Y) ||
-                    !double.IsFinite(position.Z))
+                if (!double.IsFinite(
+                        position.X) ||
+                    !double.IsFinite(
+                        position.Y) ||
+                    !double.IsFinite(
+                        position.Z))
                 {
                     continue;
                 }
@@ -616,10 +1002,6 @@ public sealed class BrainView : Control
              maximumZ) /
             2.0;
 
-        //
-        // One common scale preserves the real proportions between axes.
-        //
-
         var largestRange =
             Math.Max(
                 maximumX -
@@ -643,7 +1025,8 @@ public sealed class BrainView : Control
         _pointIndexByNeuron.Clear();
 
         for (var pointIndex = 0;
-             pointIndex < rawPoints.Count;
+             pointIndex <
+             rawPoints.Count;
              pointIndex++)
         {
             var raw =
@@ -654,11 +1037,14 @@ public sealed class BrainView : Control
                 pointIndex] =
                 new BrainPoint(
                     raw.NeuronIndex,
-                    (raw.X - centreX) /
+                    (raw.X -
+                     centreX) /
                     largestRange,
-                    (raw.Y - centreY) /
+                    (raw.Y -
+                     centreY) /
                     largestRange,
-                    (raw.Z - centreZ) /
+                    (raw.Z -
+                     centreZ) /
                     largestRange);
 
             _pointIndexByNeuron[
@@ -670,116 +1056,13 @@ public sealed class BrainView : Control
             new Point[
                 _points.Length];
 
+        _projectedDepths =
+            new double[
+                _points.Length];
+
         _projectedVisible =
             new bool[
                 _points.Length];
-    }
-
-    private ProjectedBrainPoint ProjectPoint(
-        BrainPoint point,
-        double centreX,
-        double centreY,
-        double scale)
-    {
-        var cosYaw =
-            Math.Cos(
-                _yaw);
-
-        var sinYaw =
-            Math.Sin(
-                _yaw);
-
-        var cosPitch =
-            Math.Cos(
-                _pitch);
-
-        var sinPitch =
-            Math.Sin(
-                _pitch);
-
-        //
-        // Rotate around the vertical Y axis.
-        //
-
-        var rotatedX =
-            cosYaw *
-            point.X +
-            sinYaw *
-            point.Z;
-
-        var yawZ =
-            -sinYaw *
-            point.X +
-            cosYaw *
-            point.Z;
-
-        //
-        // Rotate around the horizontal X axis.
-        //
-
-        var rotatedY =
-            cosPitch *
-            point.Y -
-            sinPitch *
-            yawZ;
-
-        var rotatedZ =
-            sinPitch *
-            point.Y +
-            cosPitch *
-            yawZ;
-
-        //
-        // Lightweight perspective projection.
-        //
-
-        const double cameraDistance =
-            2.25;
-
-        var cameraDepth =
-            cameraDistance -
-            rotatedZ;
-
-        if (cameraDepth <= 0.05)
-        {
-            return new ProjectedBrainPoint(
-                default,
-                0,
-                false);
-        }
-
-        var perspective =
-            cameraDistance /
-            cameraDepth;
-
-        var screenPoint =
-            new Point(
-                centreX +
-                rotatedX *
-                scale *
-                perspective,
-                centreY -
-                rotatedY *
-                scale *
-                perspective);
-
-        var depth =
-            Math.Clamp(
-                rotatedZ +
-                0.5,
-                0,
-                1);
-
-        var visible =
-            screenPoint.X >= -20 &&
-            screenPoint.X <= Bounds.Width + 20 &&
-            screenPoint.Y >= -20 &&
-            screenPoint.Y <= Bounds.Height + 20;
-
-        return new ProjectedBrainPoint(
-            screenPoint,
-            depth,
-            visible);
     }
 
     private void BrainView_OnPointerPressed(
@@ -799,7 +1082,8 @@ public sealed class BrainView : Control
         _dragged =
             false;
 
-        if (point.Properties.IsLeftButtonPressed)
+        if (point.Properties
+            .IsLeftButtonPressed)
         {
             _rotating =
                 true;
@@ -810,7 +1094,8 @@ public sealed class BrainView : Control
             e.Handled =
                 true;
         }
-        else if (point.Properties.IsRightButtonPressed)
+        else if (point.Properties
+            .IsRightButtonPressed)
         {
             _panning =
                 true;
@@ -845,6 +1130,12 @@ public sealed class BrainView : Control
             position.Y -
             _lastPointerPosition.Y;
 
+        if (deltaX == 0 &&
+            deltaY == 0)
+        {
+            return;
+        }
+
         var totalDeltaX =
             position.X -
             _pressPosition.X;
@@ -876,6 +1167,8 @@ public sealed class BrainView : Control
                     0.01,
                     -1.45,
                     1.45);
+
+            ClampPan();
         }
 
         if (_panning)
@@ -885,6 +1178,8 @@ public sealed class BrainView : Control
 
             _panY +=
                 deltaY;
+
+            ClampPan();
         }
 
         _lastPointerPosition =
@@ -916,9 +1211,9 @@ public sealed class BrainView : Control
         e.Pointer.Capture(
             null);
 
-        //
-        // A short left click selects a neuron. A drag rotates instead.
-        //
+        ClampPan();
+
+        InvalidateVisual();
 
         if (wasRotating &&
             !_dragged)
@@ -935,6 +1230,19 @@ public sealed class BrainView : Control
         object? sender,
         PointerWheelEventArgs e)
     {
+        if (Bounds.Width <= 0 ||
+            Bounds.Height <= 0)
+        {
+            return;
+        }
+
+        var pointerPosition =
+            e.GetPosition(
+                this);
+
+        var oldZoom =
+            _zoom;
+
         _zoom *=
             Math.Pow(
                 1.12,
@@ -943,8 +1251,76 @@ public sealed class BrainView : Control
         _zoom =
             Math.Clamp(
                 _zoom,
-                0.25,
-                8.0);
+                MinimumZoom,
+                MaximumZoom);
+
+        //
+        // Nothing changed because we have reached a zoom limit.
+        //
+
+        if (Math.Abs(
+                _zoom -
+                oldZoom) <
+            0.000001)
+        {
+            e.Handled =
+                true;
+
+            return;
+        }
+
+        var zoomRatio =
+            _zoom /
+            oldZoom;
+
+        var viewportCentreX =
+            Bounds.Width /
+            2.0;
+
+        var viewportCentreY =
+            Bounds.Height /
+            2.0;
+
+        //
+        // Zoom around the pointer rather than around the centre of the
+        // viewport.
+        //
+        // Before changing zoom:
+        //
+        //     pointer = centre + pan + projectedPoint * oldScale
+        //
+        // After changing zoom we alter pan so that same projected point still
+        // lands under the cursor:
+        //
+        //     newPan =
+        //         pointer - centre -
+        //         (pointer - centre - oldPan) * zoomRatio
+        //
+        // This gives the familiar map/CAD-style zoom behaviour where the
+        // object beneath the cursor remains anchored beneath it.
+        //
+
+        _panX =
+            pointerPosition.X -
+            viewportCentreX -
+            (
+                pointerPosition.X -
+                viewportCentreX -
+                _panX
+            ) *
+            zoomRatio;
+
+        _panY =
+            pointerPosition.Y -
+            viewportCentreY -
+            (
+                pointerPosition.Y -
+                viewportCentreY -
+                _panY
+            ) *
+            zoomRatio;
+
+        ClampPan();
 
         InvalidateVisual();
 
@@ -1023,11 +1399,6 @@ public sealed class BrainView : Control
     private static int GetActivityLevel(
         float absoluteInput)
     {
-        //
-        // Logarithmic scaling keeps weak activity visible without allowing a
-        // handful of exceptionally strong inputs to dominate the display.
-        //
-
         var normalised =
             MathF.Log10(
                 1f +
@@ -1113,6 +1484,17 @@ public sealed class BrainView : Control
         double X,
         double Y,
         double Z);
+
+    private readonly record struct CameraTransform(
+        double CosYaw,
+        double SinYaw,
+        double CosPitch,
+        double SinPitch,
+        double CentreX,
+        double CentreY,
+        double Scale,
+        double ViewportWidth,
+        double ViewportHeight);
 
     private readonly record struct ProjectedBrainPoint(
         Point ScreenPoint,

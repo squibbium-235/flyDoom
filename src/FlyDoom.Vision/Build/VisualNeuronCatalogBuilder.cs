@@ -5,7 +5,7 @@ using FlyDoom.Vision.Model;
 namespace FlyDoom.Vision.Build;
 
 /// <summary>
-/// Builds compact visual-system metadata aligned with simulation indices.
+/// Builds visual-system metadata aligned with compact simulation indices.
 /// </summary>
 public static class VisualNeuronCatalogBuilder
 {

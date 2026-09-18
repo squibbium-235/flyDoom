@@ -62,7 +62,8 @@ public static class CompactNeuronPositionTableBuilder
         var writtenPositions = 0;
 
         // Second pass: place every coordinate into its neuron's contiguous
-        // section without discarding duplicate root IDs.
+        // section without discarding additional coordinates that share a
+        // neuron root ID.
         foreach (var coordinate in coordinateSource())
         {
             var neuronIndex =

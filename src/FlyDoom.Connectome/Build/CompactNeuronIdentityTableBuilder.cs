@@ -4,7 +4,7 @@ using FlyDoom.Connectome.Model;
 namespace FlyDoom.Connectome.Build;
 
 /// <summary>
-/// Builds descriptive neuron metadata aligned with simulation neuron indices.
+/// Builds descriptive neuron metadata aligned with compact simulation indices.
 /// </summary>
 public static class CompactNeuronIdentityTableBuilder
 {

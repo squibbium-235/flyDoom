@@ -11,9 +11,10 @@ namespace FlyDoom.Runtime;
 /// FlyDoom runtime instance.
 /// </summary>
 /// <remarks>
-/// This class is UI-independent. Console applications, graphical front ends,
-/// training systems and future DOOM integration should operate on this shared
-/// runtime rather than assembling independent copies of the simulated fly.
+/// This class is deliberately UI-independent. Console applications, graphical
+/// front ends, training systems, and future DOOM integration should operate
+/// on this shared runtime rather than assembling independent copies of the
+/// simulated fly.
 /// </remarks>
 public sealed class FlyDoomRuntime
 {
@@ -29,6 +30,9 @@ public sealed class FlyDoomRuntime
 
     public CompactConnectome Connectome { get; }
 
+    /// <summary>
+    /// Gets visual-system annotations aligned with compact simulation indices.
+    /// </summary>
     public VisualNeuronCatalog VisualCatalog { get; }
 
     public VisualColumnMap VisualColumns { get; }

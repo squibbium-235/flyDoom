@@ -88,13 +88,12 @@ public sealed class BrainView : Control
     // Keep a cache of active point indices so moving the camera does not
     // require scanning every neuron's state again.
     //
-
-    private readonly List<int> _activePointIndices =
-        [];
+    private readonly List<int> _activePointIndices = new List<int>();
 
     //
-    // Picking and programmatic focusing need rapid neuron -> rendered point
-    // lookup rather than scanning the entire population.
+    // Picking and programmatic focusing happen frequently once the activity
+    // viewer is interactive. Keep a direct neuron-to-point lookup instead of
+    // scanning the entire neuron population on every selection.
     //
 
     private readonly Dictionary<int, int> _pointIndexByNeuron =

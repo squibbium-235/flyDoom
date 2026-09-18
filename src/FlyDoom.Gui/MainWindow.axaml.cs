@@ -54,6 +54,12 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
+        //
+        // Keep simulation execution deliberately slower than the rendering
+        // refresh rate for now. One timer tick may advance several biological
+        // milliseconds depending on the selected run speed.
+        //
+
         _runTimer =
             new DispatcherTimer
             {

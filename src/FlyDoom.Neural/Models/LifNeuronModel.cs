@@ -56,8 +56,8 @@ public sealed class LifNeuronModel
         //
         // S(t + dt) = S(t) * exp(-dt / tauSyn)
         //
-        // Unlike the old implementation, a synaptic event therefore
-        // influences the neuron for several timesteps.
+        // A synaptic event therefore continues to influence the neuron
+        // across several subsequent timesteps.
         //
         var synapticDecayFactor =
             MathF.Exp(

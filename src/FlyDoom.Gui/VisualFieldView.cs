@@ -7,8 +7,7 @@ using FlyDoom.Vision.Model;
 namespace FlyDoom.Gui;
 
 /// <summary>
-/// Draws the spatial visual columns, current visual stimulus and interactive
-/// stimulus anchor.
+/// Draws the spatial visual columns of both optic lobes, the current visual stimulus, and the interactive stimulus anchor; allows selecting a column.
 /// </summary>
 public sealed class VisualFieldView : Control
 {

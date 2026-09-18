@@ -4,7 +4,7 @@ namespace FlyDoom.Connectome.Model;
 
 /// <summary>
 /// Stores per-neuron biological metadata in arrays aligned with compact
-/// simulation neuron indices.
+/// simulation indices.
 /// </summary>
 public sealed class CompactNeuronTable
 {

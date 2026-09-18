@@ -4,7 +4,7 @@ using FlyDoom.Connectome.Model;
 namespace FlyDoom.Connectome.Build;
 
 /// <summary>
-/// Builds compact morphological metadata aligned with simulation indices.
+/// Builds morphological metadata aligned with compact simulation indices.
 /// </summary>
 public static class CompactNeuronMorphologyTableBuilder
 {

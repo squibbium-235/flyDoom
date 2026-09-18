@@ -153,9 +153,9 @@ public sealed class NeuralSimulation
     /// Propagates spike-triggered synaptic output.
     /// </summary>
     /// <remarks>
-    /// Graded sensory transmission enters synaptic state separately and
-    /// therefore does not need to manufacture action potentials in neurons
-    /// that are biologically non-spiking.
+    /// Graded sensory transmission, such as photoreceptor output, enters
+    /// synaptic state separately and therefore does not need to generate
+    /// action potentials in neurons that are biologically non-spiking.
     /// </remarks>
     private long PropagateSpikes()
     {

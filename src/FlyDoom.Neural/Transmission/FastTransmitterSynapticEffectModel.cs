@@ -13,7 +13,7 @@ namespace FlyDoom.Neural.Transmission;
 /// Acetylcholine is treated as excitatory, GABA as inhibitory, and glutamate
 /// as provisionally inhibitory.
 ///
-/// Dopamine, serotonin and octopamine are not assigned a fast voltage effect
+/// Dopamine, serotonin, and octopamine are not assigned a fast voltage effect
 /// here because their modulatory roles will be modelled separately.
 ///
 /// The returned value is an input amplitude for the decaying synaptic state,
